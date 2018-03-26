@@ -4,14 +4,17 @@
 
 #include "triang.hpp"
 #include "utils.hpp"
-#include <cstdio>
 #include <cstdlib>
-
+#include <iostream>
+#include <fstream>
 
 static bool useGrid = false;
 
 int main (int argc, const char *argv[])
 {
+  const char* psFileName = "triang.ps";
+  const char* xgFileName = "triang.xg";
+    
   int WW = 7;
   int HH = 5;
   double delta = 0.0;
@@ -43,18 +46,24 @@ int main (int argc, const char *argv[])
   }
   catch (DelaunayError<double> de) {
     const char* dumpName = "delaunay-error.xg";
-    fprintf (stderr, " DelaunayError EXCEPTION caught. Dumping to \"%s\"\n", dumpName);
+    std::cerr
+      << " DelaunayError EXCEPTION caught. Dumping to \"" << dumpName << "\"" << std::endl;
     dumpDelaunayError (de, dumpName);
   }
-  printf ("TitleText: %ld points %ld triangles\n", pSet.size(), trSet.size());
-  for (std::set<Triangle>::const_iterator q = trSet.begin(); q != trSet.end(); q++) {
-    printf ("move %lf %lf\n", pSet[q->ix0].x, pSet[q->ix0].y);
-    printf ("     %lf %lf\n", pSet[q->ix1].x, pSet[q->ix1].y);
-    printf ("     %lf %lf\n", pSet[q->ix2].x, pSet[q->ix2].y);
-    printf ("     %lf %lf\n", pSet[q->ix0].x, pSet[q->ix0].y);
-  }
 
-  dumpPS (pSet, trSet, "x.ps");
+  {
+    std::ofstream xgf (xgFileName);
+    xgf << "TitleText: " << pSet.size() << " points "
+	<< trSet.size() << " triangles" << std::endl;
+    for (std::set<Triangle>::const_iterator q = trSet.begin(); q != trSet.end(); q++) {
+      xgf
+	<< "move " << pSet[q->ix0].x << " " <<  pSet[q->ix0].y << std::endl
+	<< "     " << pSet[q->ix1].x << " " <<  pSet[q->ix1].y << std::endl
+	<< "     " << pSet[q->ix2].x << " " <<  pSet[q->ix2].y << std::endl
+	<< "     " << pSet[q->ix0].x << " " <<  pSet[q->ix0].y << std::endl;
+    }
+  }
+  dumpPS (pSet, trSet, psFileName);
 
   // trSet.clear();
   // delaunay (pSet, trSet);
