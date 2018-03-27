@@ -22,7 +22,7 @@ template <typename T> T det (Point<T> a, Point<T> b)
   return (a.x*b.y - a.y*b.x);
 }
 
-// Return true if point 'p' is outside the triangle formed by points 't0','t1' and 't2':
+// Return true if point 'p' is inside the triangle formed by points 't0','t1' and 't2':
 
 template <typename T> bool isInside (Point<T> p, Point<T> t0,Point<T> t1,Point<T> t2)
 {
@@ -31,13 +31,6 @@ template <typename T> bool isInside (Point<T> p, Point<T> t0,Point<T> t1,Point<T
     d12 = det (t1-p, t2-p),
     d20 = det (t2-p, t0-p);
   return (d01*d12 > 0) && (d12*d20 > 0) && (d20*d01 > 0);
-}
-
-// Return true if point 'p' is outside 'triangle':
-
-template <typename T> bool isInside (Point<T> p, const std::vector<Point<T> >& triangle)
-{
-  return (isInside (p, triangle[0], triangle[1], triangle[2]));
 }
 
 // Return the center of the circle containing points 'a', 'b' and 'c':
@@ -236,7 +229,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
           break;
         default:
           {
-            // Connect 'p' to the "near" points of the oriented hull and rewrite the modify.
+            // Connect 'p' to the "near" points of the oriented hull and update the hull.
             int hullLen = orientedHull.size();
             std::vector<int> connectedPoints (hullLen, 0);
             std::vector<int> newHull;
