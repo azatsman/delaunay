@@ -4,6 +4,10 @@
 #include "triang.hpp"
 #include <fstream>
 
+#include <cstdlib>
+
+#define SRAND(N) srand48(N)
+#define DRAND()  drand48()
 
 // Exception class containing info about non-confirming triangulation.
 // Specifically, it contains the triangle and the index of the point
@@ -86,15 +90,18 @@ void dumpDelaunayError (const DelaunayError<T>& de, const char* fileName)
 template <typename T>
 void dumpPS (const std::vector<Point<T> >& pntSet,
 	     const std::set<Triangle>&     trSet,
-	     const char* fileName)
+	     const char* fileName,
+	     T xMax = 1,
+	     T yMax = 1)
 {
   T
     pWidth  = 72 *  8.5,
     pHeight = 72 * 11.0,
-    xyScale = 0.9 * pWidth,
-    xShift = 0.5 * (pWidth  - xyScale),
-    yShift = 0.5 * (pHeight - xyScale);
-
+    xScale = 0.9 * pWidth / xMax,
+    yScale = 0.9 * pHeight / yMax,
+    xyScale = std::min (xScale, yScale),
+    xShift = 0.5 * (pWidth  - xyScale * xMax),
+    yShift = 0.5 * (pHeight - xyScale * yMax);
   std::ofstream ofl(fileName);
   ofl
     << "%!" << std::endl
@@ -116,5 +123,23 @@ void dumpPS (const std::vector<Point<T> >& pntSet,
     << "stroke"   << std::endl
     << "showpage" << std::endl;
 }
+
+template <typename T>
+void dumpXG (const std::vector<Point<T> >& pntSet,
+	     const std::set<Triangle>&     trSet,
+	     const char* fileName)
+{
+  std::ofstream xgf (fileName);
+  xgf << "TitleText: " << pntSet.size() << " points "
+      << trSet.size() << " triangles" << std::endl;
+  for (std::set<Triangle>::const_iterator q = trSet.begin(); q != trSet.end(); q++) {
+    xgf
+      << "move " << pntSet[q->ix0].x << " " <<  pntSet[q->ix0].y << std::endl
+      << "     " << pntSet[q->ix1].x << " " <<  pntSet[q->ix1].y << std::endl
+      << "     " << pntSet[q->ix2].x << " " <<  pntSet[q->ix2].y << std::endl
+      << "     " << pntSet[q->ix0].x << " " <<  pntSet[q->ix0].y << std::endl;
+  }
+}
+
 
 #endif /*INCLUDED_utils_hpp_28196287*/
