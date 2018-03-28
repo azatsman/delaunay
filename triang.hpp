@@ -173,16 +173,16 @@ std::set <Triangle>::iterator findAdjacent (const std::set<Triangle>&  trSet,
 
 template <typename T>
 void addAndFlip (int pntNum, int i0, int i1,
-                 const std::vector<Point<T> >& pntSet,
+                 const std::vector<Point<T> >& pntVector,
                  std::set <Triangle>&  trSet)
 {
   int i2;
   std::set <Triangle>::iterator tp = findAdjacent (trSet, i0, i1, -1, &i2);
   if (tp != trSet.end()) {
-    if (isInCircumCircle (pntSet[pntNum], pntSet[i0], pntSet[i1], pntSet[i2])) {
+    if (isInCircumCircle (pntVector[pntNum], pntVector[i0], pntVector[i1], pntVector[i2])) {
       trSet.erase (tp);
-      addAndFlip (pntNum, i0, i2, pntSet, trSet);
-      addAndFlip (pntNum, i1, i2, pntSet, trSet);
+      addAndFlip (pntNum, i0, i2, pntVector, trSet);
+      addAndFlip (pntNum, i1, i2, pntVector, trSet);
     }
     else {
       trSet.insert (Triangle (pntNum, i0, i1));
@@ -191,6 +191,227 @@ void addAndFlip (int pntNum, int i0, int i1,
   else
     trSet.insert (Triangle (pntNum, i0, i1));
 }
+
+// Return true if the three points lie on a single line with relative
+// precision of epsilon.  Note that if T is an integer type then
+// 'epsilon' is usually 0.
+
+template <typename T>
+bool isInLine (Point<T> p0, Point<T> p1, Point<T> p2, T epsilon2)
+{
+  Point<T>
+    side1 = p1 - p0,
+    side2 = p2 - p0;
+  T sideNorms  = side1.norm2() + side2.norm2();
+  T area = det (side1, side2);
+  bool rslt = area*area < epsilon2 * sideNorms * sideNorms;
+  return rslt;
+}
+
+// Position of a point relative to a triangle:
+
+enum PointVsTriangle {Inside,           // Inside, away from the sides.
+		      OnASide,          // On a side of the triangle, but not in a corner
+		      OnASideExternal,  // On a side without adjacent triangle.
+		      Duplicate,        // Too close to one of the corners.
+		      Outside,          // Completely outside of this triangle.
+		      Unknown};
+
+void addTriangle (int vertIx0, int vertIx1, int vertIx2,
+		  std::set<Triangle> trSet)
+{
+  trSet.insert (Triangle (vertIx0, vertIx1, vertIx2));
+}
+
+// Return true if two adjacent triangles
+//    (adjVert1, adjVert2, oppVert1)   and   (adjVert1, adjVert2, oppVert2)
+// are "non-Delaunay" and have to be flipped to 
+//    (adjVert1, oppVert1, oppVert2)   and   (adjVert2, oppVert1, oppVert2):
+
+template <typename T>
+bool mustFlip (int adjVert1, int adjVert2,
+	       int oppVert1, int oppVert2,
+	       std::vector<Point<T> > pntVector)
+{
+  Point<T>
+    adjPnt1 = pntVector[adjVert1],
+    adjPnt2 = pntVector[adjVert2],
+    oppPnt1 = pntVector[oppVert1],
+    oppPnt2 = pntVector[oppVert2];
+  return
+    isInCircumCircle (oppPnt2, adjPnt1, adjPnt2, oppPnt1);
+}
+
+// ...............
+
+template <typename T>
+void addSideTriange (int newPnt,  int sidePnt1, int sidePnt2,
+		     std::vector<Point<T> > pntVector,
+		     std::set<Triangle> trSet)
+{
+  int nbVert;
+  std::set<Triangle>::iterator adjTr = findAdjacent (trSet, sidePnt1, sidePnt2, newPnt, &nbVert);
+  if ((adjTr != trSet.end()) &&
+      (mustFlip (sidePnt1, sidePnt2, newPnt, nbVert, pntVector)) ) {
+    trSet.erase (adjTr);
+    addTriangle (newPnt, sidePnt1, nbVert, trSet);
+    addTriangle (newPnt, sidePnt2, nbVert, trSet);
+  }
+  else
+    addTriangle (newPnt, sidePnt1, sidePnt2, trSet);
+}
+
+
+// Try inserting new point in the triangle.
+// Several cases depending on the returned value:
+// == Inside: the point is inside the triangle and not "too close" to any of the sides 
+//      -- 3 new triangles are created
+//      -- Adjacent triangles, if any, are checked for flipping.
+// == OnASide:
+//      -- 4 new triangles are created, two in the current triangle and two in the adjacent one;
+//      -- 2 pairs of triangles are checked for flipping.
+//      -- addVertex1 and adjVertex2 are filled with vertex indices of the side on which
+//           new point is lying.
+//      -- oppositeVertex is filled with the index of the remaining vertex.
+//      -- adjacent triangle aexists than check for flippint.
+// == OnASideExternal:
+//      -- 2 new triangles are created.
+//      -- addVertex1 and adjVertex2 are filled with vertex indices of the side on which
+//           new point is lying;
+//      -- oppositeVertex is left untouched;
+// -- Duplicate: the point is too close to one of the vertices, in which case nothing
+//       is changed, and, in the end, the point is not included in any of the triangles.
+// -- Outside:   the point lines completely outside (not too closed to) the triangle, so
+//       nothing is changed.
+
+template <typename T>
+PointVsTriangle tryTriangle (int pntNum,
+			     std::set<Triangle>::iterator tp,
+			     const std::vector<T> pntVector,
+			     T epsilon2, // relative precision.
+			     int* adjVertex1, int* adjVertex2, int* oppositeVertex,
+			     std::set<Triangle> trSet)
+{
+  PointVsTriangle rslt = Unknown;
+  Triangle trngl = *tp;
+  Point<T>
+    p = pntVector[pntNum],
+    v0 = trngl.ix0,
+    v1 = trngl.ix1,
+    v2 = trngl.ix2,
+    t0 = pntVector[v0],
+    t1 = pntVector[v1],
+    t2 = pntVector[v2];
+  T
+    roughSize2 = (t1-t0).norm2() + (t2-t0).norm2(),
+    absEpsilon2 = absEpsilon2,  // absolute instead of relative
+    d01 = det (t0-p, t1-p),
+    d12 = det (t1-p, t2-p),
+    d20 = det (t2-p, t0-p),
+    d012 = d01 * d12,
+    d120 = d12 * d20,
+    d201 = d20 * d01;
+
+  // First check if the point is outside the triangle,
+  // which is to say that at least one pair of determinants have different signs:
+
+  if (d012 < 0 || (d120 < 0) || (d201 < 0))
+    return Outside;
+
+  // Now check if the point is inside the triangle and not near or on any of the sides,
+  // which means that none of the determinants is too small:
+
+  if ((d012 > absEpsilon2) &&
+      (d120 > absEpsilon2) &&
+      (d201 > absEpsilon2)) {
+    trSet.erase (tp);
+    addSideTriangle (pntNum, v0, v1, pntVector, trSet);
+    addSideTriangle (pntNum, v1, v2, pntVector, trSet);
+    addSideTriangle (pntNum, v2, v0, pntVector, trSet);
+    return Inside;
+  }
+
+  // At this stage we know that the point is close to one of the sides of the triangle,
+  // but we have to figure out which side. That side is determined by finding
+  // the largest product of determinants.
+
+  int vOpp;
+  T dMax;
+  if (d012 > d120) {
+    v0   = trngl.ix0;
+    v1   = trngl.ix2;
+    vOpp = trngl.ix1;
+    dMax = d012;
+  }
+  else {
+    v0   = trngl.ix1;
+    v1   = trngl.ix0;
+    vOpp = trngl.ix2;
+    dMax = d120;
+  }
+  if (d201 > dMax) {
+    v0   = trngl.ix1;
+    v1   = trngl.ix2;
+    vOpp = trngl.ix0;
+    dMax = d201;
+  }
+
+  // Now we know that the point is close to the side with indices 'v0' and 'v1',
+  // and the opposite triangle vertex has index 'vOpp'.
+  // If  the point is close to either 'v0' or 'v1' then do nothing:
+
+  if (((p-pntVector[v0]).norm2 < absEpsilon2) || ((p-pntVector[v1]).norm2 < absEpsilon2))
+    return Duplicate;
+
+  // At this stage the point is very close to the [g0,g1] line, but not close to either end:
+
+  *adjVertex1     = v0;
+  *adjVertex2     = v1;
+  *oppositeVertex = vOpp;
+
+  int nbVert;
+
+  // Check whether there is a triangle adjacent to the [v0,v1] side:
+
+  std::set<Triangle>::iterator adjTr = findAdjacent (trSet, v0, v1,
+						    vOpp, &nbVert);
+
+  if (adjTr == trSet.end()) {
+    // No adjacent triangles, no flipping possible
+    trSet.erase(tp);
+    addTriangle (pntNum, v0, vOpp,  trSet);
+    addTriangle (pntNum, v1, vOpp,  trSet);
+    return OnASideExternal;
+  }
+  else {
+    // If an adjacent triangle exists then erase both the current triangle and
+    // the adjacent one, then check for flipping "around" [v0,v1]:
+
+    trSet.erase (tp);
+    trSet.erase (adjTr);
+
+    // Check the triangle containing v0 for flipping:
+    if (mustFlip (v0, pntNum, vOpp, nbVert, pntVector)) {
+      addTriangle (pntNum, vOpp, nbVert, trSet);
+      addTriangle (v0    , vOpp, nbVert, trSet);
+    }
+    else {
+      addTriangle (pntNum, v0, vOpp, trSet);
+      addTriangle (pntNum, v0, nbVert, trSet);
+    }
+    // Check the triangle containing v1 for flipping:
+    if (mustFlip (v1, pntNum, vOpp, nbVert, pntVector)) {
+      addTriangle (pntNum, vOpp, nbVert, trSet);
+      addTriangle (v1    , vOpp, nbVert, trSet);
+    }
+    else {
+      addTriangle (pntNum, v1, vOpp,   trSet);
+      addTriangle (pntNum, v1, nbVert, trSet);
+    }
+    return OnASideExternal;
+  }
+}
+
 
 template <typename T>
 void delaunay (const std::vector<Point<T> >& pSet,
