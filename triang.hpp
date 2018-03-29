@@ -5,6 +5,15 @@
 #include <set>
 #include <stdexcept>
 
+#ifndef DEBUG_PRINTS
+#define  DEBUG_PRINTS 0
+#endif
+
+#if DEBUG_PRINTS
+#include <cstdio>
+#include <iostream>
+#endif
+
 template <typename T>
 struct Point {
   T x;
@@ -167,6 +176,17 @@ std::set <Triangle>::iterator findAdjacent (const std::set<Triangle>&  trSet,
   return trSet.end();
 }
 
+
+void removeTriangle (std::set<Triangle>& trSet,
+		     std::set<Triangle>::iterator tp)
+{
+#if DEBUG_PRINTS
+  std::cout << " ========= Removing Triangle "
+	    << tp->ix0 << "," << tp->ix1 << "," << tp->ix2 << std::endl;
+#endif
+  trSet.erase (tp);
+}
+
 // Add new triangle with a new point pntNum and old points i0, i1.
 // If i0,i1 belong to an old triangle, and pntNum is inside the circle
 // circumscribed around the triangle than "flip" the new and old triangles.
@@ -180,7 +200,7 @@ void addAndFlip (int pntNum, int i0, int i1,
   std::set <Triangle>::iterator tp = findAdjacent (trSet, i0, i1, -1, &i2);
   if (tp != trSet.end()) {
     if (isInCircumCircle (pntVector[pntNum], pntVector[i0], pntVector[i1], pntVector[i2])) {
-      trSet.erase (tp);
+      removeTriangle (trSet, tp);
       addAndFlip (pntNum, i0, i2, pntVector, trSet);
       addAndFlip (pntNum, i1, i2, pntVector, trSet);
     }
@@ -211,16 +231,23 @@ bool isInLine (Point<T> p0, Point<T> p1, Point<T> p2, T epsilon2)
 // Position of a point relative to a triangle:
 
 enum PointVsTriangle {Inside,           // Inside, away from the sides.
-		      OnASide,          // On a side of the triangle, but not in a corner
+		      OnASideInternal,          // On a side of the triangle, but not in a corner
 		      OnASideExternal,  // On a side without adjacent triangle.
 		      Duplicate,        // Too close to one of the corners.
 		      Outside,          // Completely outside of this triangle.
-		      Unknown};
+		      NoTriangles,      // No triangles found for the point
+		      Unknown};         // Usually happens because of an error.
 
 void addTriangle (int vertIx0, int vertIx1, int vertIx2,
-		  std::set<Triangle> trSet)
+		  std::set<Triangle>& trSet)
 {
-  trSet.insert (Triangle (vertIx0, vertIx1, vertIx2));
+  Triangle a  (vertIx0, vertIx1, vertIx2);
+  trSet.insert (a);
+#if DEBUG_PRINTS
+  std::cout << " ========= Added   Triangle "
+	    << a.ix0 << "," << a.ix1 << "," << a.ix2 << std::endl;
+#endif
+  
 }
 
 // Return true if two adjacent triangles
@@ -242,18 +269,18 @@ bool mustFlip (int adjVert1, int adjVert2,
     isInCircumCircle (oppPnt2, adjPnt1, adjPnt2, oppPnt1);
 }
 
-// ...............
+// 
 
 template <typename T>
-void addSideTriange (int newPnt,  int sidePnt1, int sidePnt2,
-		     std::vector<Point<T> > pntVector,
-		     std::set<Triangle> trSet)
+void addSideTriangle (int newPnt,  int sidePnt1, int sidePnt2,
+		      std::vector<Point<T> > pntVector,
+		      std::set<Triangle>& trSet)
 {
   int nbVert;
   std::set<Triangle>::iterator adjTr = findAdjacent (trSet, sidePnt1, sidePnt2, newPnt, &nbVert);
   if ((adjTr != trSet.end()) &&
       (mustFlip (sidePnt1, sidePnt2, newPnt, nbVert, pntVector)) ) {
-    trSet.erase (adjTr);
+    removeTriangle (trSet, adjTr);
     addTriangle (newPnt, sidePnt1, nbVert, trSet);
     addTriangle (newPnt, sidePnt2, nbVert, trSet);
   }
@@ -267,7 +294,7 @@ void addSideTriange (int newPnt,  int sidePnt1, int sidePnt2,
 // == Inside: the point is inside the triangle and not "too close" to any of the sides 
 //      -- 3 new triangles are created
 //      -- Adjacent triangles, if any, are checked for flipping.
-// == OnASide:
+// == OnASideInternal:
 //      -- 4 new triangles are created, two in the current triangle and two in the adjacent one;
 //      -- 2 pairs of triangles are checked for flipping.
 //      -- addVertex1 and adjVertex2 are filled with vertex indices of the side on which
@@ -287,24 +314,26 @@ void addSideTriange (int newPnt,  int sidePnt1, int sidePnt2,
 template <typename T>
 PointVsTriangle tryTriangle (int pntNum,
 			     std::set<Triangle>::iterator tp,
-			     const std::vector<T> pntVector,
+			     const std::vector<Point<T> > pntVector,
 			     T epsilon2, // relative precision.
-			     int* adjVertex1, int* adjVertex2, int* oppositeVertex,
-			     std::set<Triangle> trSet)
+			     int* adjVertex1,
+			     int* adjVertex2,
+			     int* oppositeVertex,
+			     std::set<Triangle>& trSet)
 {
-  PointVsTriangle rslt = Unknown;
   Triangle trngl = *tp;
-  Point<T>
-    p = pntVector[pntNum],
+  int
     v0 = trngl.ix0,
     v1 = trngl.ix1,
-    v2 = trngl.ix2,
+    v2 = trngl.ix2;
+  Point<T>
+    p = pntVector[pntNum],
     t0 = pntVector[v0],
     t1 = pntVector[v1],
     t2 = pntVector[v2];
   T
     roughSize2 = (t1-t0).norm2() + (t2-t0).norm2(),
-    absEpsilon2 = absEpsilon2,  // absolute instead of relative
+    absEpsilon2 = epsilon2 * roughSize2,  // absolute instead of relative
     d01 = det (t0-p, t1-p),
     d12 = det (t1-p, t2-p),
     d20 = det (t2-p, t0-p),
@@ -324,7 +353,7 @@ PointVsTriangle tryTriangle (int pntNum,
   if ((d012 > absEpsilon2) &&
       (d120 > absEpsilon2) &&
       (d201 > absEpsilon2)) {
-    trSet.erase (tp);
+    removeTriangle (trSet, tp);
     addSideTriangle (pntNum, v0, v1, pntVector, trSet);
     addSideTriangle (pntNum, v1, v2, pntVector, trSet);
     addSideTriangle (pntNum, v2, v0, pntVector, trSet);
@@ -360,7 +389,7 @@ PointVsTriangle tryTriangle (int pntNum,
   // and the opposite triangle vertex has index 'vOpp'.
   // If  the point is close to either 'v0' or 'v1' then do nothing:
 
-  if (((p-pntVector[v0]).norm2 < absEpsilon2) || ((p-pntVector[v1]).norm2 < absEpsilon2))
+  if (((p-pntVector[v0]).norm2() < absEpsilon2) || ((p-pntVector[v1]).norm2() < absEpsilon2))
     return Duplicate;
 
   // At this stage the point is very close to the [g0,g1] line, but not close to either end:
@@ -375,7 +404,6 @@ PointVsTriangle tryTriangle (int pntNum,
 
   std::set<Triangle>::iterator adjTr = findAdjacent (trSet, v0, v1,
 						    vOpp, &nbVert);
-
   if (adjTr == trSet.end()) {
     // No adjacent triangles, no flipping possible
     trSet.erase(tp);
@@ -387,8 +415,8 @@ PointVsTriangle tryTriangle (int pntNum,
     // If an adjacent triangle exists then erase both the current triangle and
     // the adjacent one, then check for flipping "around" [v0,v1]:
 
-    trSet.erase (tp);
-    trSet.erase (adjTr);
+    removeTriangle (trSet, tp);
+    removeTriangle (trSet, adjTr);
 
     // Check the triangle containing v0 for flipping:
     if (mustFlip (v0, pntNum, vOpp, nbVert, pntVector)) {
@@ -408,34 +436,88 @@ PointVsTriangle tryTriangle (int pntNum,
       addTriangle (pntNum, v1, vOpp,   trSet);
       addTriangle (pntNum, v1, nbVert, trSet);
     }
-    return OnASideExternal;
+    return OnASideInternal;
   }
 }
 
 
 template <typename T>
 void delaunay (const std::vector<Point<T> >& pSet,
-               std::set <Triangle>&          trSet)
+               std::set <Triangle>&          trSet,
+	       T epsilon = static_cast<T> (1e-4))
 {
   // Indices of the oriented (counterclockwise) convex hull of all points:
+  T epsilon2 = epsilon * epsilon;
   std::vector<int> orientedHull;
   trSet.clear();
   int numPoints = pSet.size();
+
   for (int pntNum=0; pntNum<numPoints; pntNum++) {
     Point<T> p = pSet[pntNum];
-    bool foundEnclosure = false;
+    // bool foundEnclosure = false;
+    int sidePnt1, sidePnt2, oppPnt;
+
+#if DEBUG_PRINTS
+    int trNum = 0;
+    std::cout
+	<<  "Point " << pntNum
+	<< " (" << pSet[pntNum].x << ", " << pSet[pntNum].y << ") "
+	<< std::endl;
+#endif
+    
+    PointVsTriangle tryResult = NoTriangles;
+    bool needToUpdateHull = true;
+
     for (std::set<Triangle>::iterator tp = trSet.begin(); tp != trSet.end(); tp++) {
-      Triangle tr = *tp;
+
+#if DEBUG_PRINTS
+      //      printf ("Point %7d Triangle %7d of %7ld\n", pntNum, trNum++, trSet.size());
+#endif
+      // Triangle tr = *tp;
+#if 1
+      tryResult = tryTriangle<T> (pntNum,
+				  tp,
+				  pSet,
+				  epsilon2,
+				  &sidePnt1,
+				  &sidePnt2,
+				  &oppPnt,
+				  trSet);
+
+#if DEBUG_PRINTS
+      std::cout
+	//	<<  "Point " << pntNum
+	//	<< " (" << pSet[pntNum].x << ", " << pSet[pntNum].y << ") "
+	<< " Triangle " << trNum++
+	<< " (" << tp->ix0 << ", " << tp->ix1 << ", " << tp->ix2 << ") "
+	<< " of " <<  trSet.size()
+	<< "    tryTriangle ==> " << tryResult << std::endl;
+#endif
+
+      if ((tryResult == Inside)    ||
+	  (tryResult == Duplicate) ||
+	  (tryResult == OnASideInternal)) {
+	needToUpdateHull = false;
+	break;
+      }
+      if ((tryResult == OnASideExternal)) {
+	// needToUpdateHull = true;
+	break;
+      }
+
+#else
       if (isInside (p, pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])) {
-        trSet.erase (tp);
+        removeTriangle (trSet, tp);
         addAndFlip (pntNum, tr.ix0, tr.ix1, pSet, trSet);
         addAndFlip (pntNum, tr.ix1, tr.ix2, pSet, trSet);
         addAndFlip (pntNum, tr.ix2, tr.ix0, pSet, trSet);
         foundEnclosure = true;
         break;
       }
+#endif
     }
-    if (! foundEnclosure) {
+
+    if ((tryResult == Outside) || (tryResult == NoTriangles)) {
       switch (orientedHull.size()) {
         case 0:
         case 1:
@@ -446,7 +528,8 @@ void delaunay (const std::vector<Point<T> >& pSet,
           if (det (pSet[orientedHull[1]]-pSet[orientedHull[0]],
                    pSet[orientedHull[2]]-pSet[orientedHull[1]]) < 0)
             std::swap (orientedHull[1], orientedHull[2]);
-          trSet.insert (Triangle (orientedHull[0], orientedHull[1], orientedHull[2]));
+	  addTriangle (orientedHull[0], orientedHull[1], orientedHull[2], trSet);
+          // trSet.insert (Triangle (orientedHull[0], orientedHull[1], orientedHull[2]));
           break;
         default:
           {
@@ -456,15 +539,31 @@ void delaunay (const std::vector<Point<T> >& pSet,
             std::vector<int> newHull;
             // Create new triangles and mark the 'connectedPoints' to prepare for
             // the rebuilding.
-            for (int k=0; k<hullLen; k++) {
-              int k1 = (k+1) % hullLen;
+            for (int k0=0; k0<hullLen; k0++) {
+              int
+		k1 = (k0+1) % hullLen,
+		hk0 = orientedHull[k0],
+		hk1 = orientedHull[k1];
               Point<T>
-                hp0 = pSet[orientedHull[k]],
-                hp1 = pSet[orientedHull[k1]];
+                hp0 = pSet[hk0],
+                hp1 = pSet[hk1];
               if (det  (p-hp0, p-hp1) < 0) {
-                connectedPoints[k ]++;
+		int nbVert;
+		std::set<Triangle>::iterator adjTr =
+		  findAdjacent (trSet, hk0, hk1, pntNum, &nbVert);
+		if ((adjTr != trSet.end()) &&
+		    (mustFlip (hk0, hk1, pntNum, nbVert, pSet))) {
+
+		  removeTriangle (trSet, adjTr);
+		  addTriangle (pntNum, hk0,  nbVert, trSet);
+		  addTriangle (pntNum, hk1, nbVert, trSet);
+		}
+		else
+		  addTriangle (pntNum, hk0, hk1, trSet);
+
+                connectedPoints[k0]++;
                 connectedPoints[k1]++;
-                addAndFlip (pntNum, orientedHull[k], orientedHull[k1], pSet, trSet);
+                // addAndFlip (pntNum, orientedHull[k], orientedHull[k1], pSet, trSet);
                 // trSet.insert (Triangle (pntNum, orientedHull[k], orientedHull[k1]));
               }
             }

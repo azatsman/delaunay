@@ -1,4 +1,6 @@
-CXXFLAGS = -O3 -Wall -I..
+# CXXFLAGS = -O3 -Wall -I..
+
+CXXFLAGS = -g -Wall -I.. -DDEBUG_PRINTS=1
 
 ut-isinside: ut-isinside.cpp ../triang.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
