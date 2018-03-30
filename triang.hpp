@@ -193,8 +193,8 @@ void removeTriangle (std::set<Triangle>& trSet,
 #if DEBUG_TRIANG
   std::cout << dbgMarker << " triangle removed "
 	    << std::setw(4) << tp->ix0 << " "
-	    << std::setw(4)<< tp->ix1 << " "
-	    << std::setw(4)<< tp->ix2 << std::endl;
+	    << std::setw(4) << tp->ix1 << " "
+	    << std::setw(4) << tp->ix2 << std::endl;
 #endif
   trSet.erase (tp);
 }
@@ -207,8 +207,8 @@ void addTriangle (int vertIx0, int vertIx1, int vertIx2,
 #if DEBUG_TRIANG
   std::cout << dbgMarker << " triangle added "
 	    << std::setw(4) << vertIx0 << " "
-	    << std::setw(4)<< vertIx1 << " "
-	    << std::setw(4)<< vertIx2 << std::endl;
+	    << std::setw(4) << vertIx1 << " "
+	    << std::setw(4) << vertIx2 << std::endl;
 #endif
 }
 

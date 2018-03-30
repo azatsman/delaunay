@@ -1,47 +1,101 @@
 
+#ifdef DEBUG_TRIANG
+#undef DEBUG_TRIANG
 #define DEBUG_TRIANG 1
+#endif
+
 #include "triang.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 
 #define BUFLEN 1024
 #define STREQ(A,B) (!strcmp(A,B))
 
 typedef double Number;
+struct TrTrack {
+  std::vector <Point<Number> >  pointSet;
+  std::set<Triangle>            triangleSet;
+  int ctr;
+  char nameBuf [222];
+
+  TrTrack () : pointSet(), triangleSet(), ctr(0) {}
+
+  void printTriangle (std::ostream& f, Triangle tr) {
+    Point<Number>
+      p0 = pointSet [tr.ix0],
+      p1 = pointSet [tr.ix1],
+      p2 = pointSet [tr.ix2];
+    f << "move " << p0.x << " " << p0.y << std::endl
+      << "     " << p1.x << " " << p1.y << std::endl
+      << "     " << p2.x << " " << p2.y << std::endl
+      << "     " << p0.x << " " << p0.y << std::endl;
+  }
+
+  const char* nextFileName () {
+    sprintf (nameBuf, "tr-%04d.xg", ctr);
+    ctr++;
+    return nameBuf;
+  }
+
+  void dumpOldTriangles (std::ostream& f) {
+    for (std::set<Triangle>::const_iterator q=triangleSet.begin();
+	 q != triangleSet.end(); q++) {
+      printTriangle (f, *q);
+    }
+  }
+
+  void pntAdd (Number x, Number y) {
+    pointSet.push_back (Point<Number> (x,y));
+  }
+
+  void trAdd (int ix0, int ix1, int ix2) {
+    std::ofstream xgf (nextFileName ());
+    xgf << "TitleText: Add triangle\n" << std::endl;
+    Triangle tr (ix0, ix1, ix2);
+    dumpOldTriangles (xgf);
+    xgf << std::endl;
+    printTriangle (xgf, tr);
+    addTriangle (ix0, ix1, ix2, triangleSet);
+    // triangleSet.insert (tr);
+  }
+
+  void trRemove (int ix0, int ix1, int ix2) {
+    std::ofstream xgf (nextFileName ());
+    xgf << "TitleText: Remove triangle\n" << std::endl;
+    Triangle tr (ix0, ix1, ix2);
+    triangleSet.erase (tr);
+
+    std::cout << dbgMarker << " triangle removed "
+	      << std::setw(4) << tr.ix0 << " "
+	      << std::setw(4) << tr.ix1 << " "
+	      << std::setw(4) << tr.ix2 << std::endl;
 
 
-static void trAdd (int ix0, int ix1, int ix2,
-		   std::vector <Point<Number> > pntSet,
-		   int ctr)
-{
-  // TBD
-}
+    dumpOldTriangles (xgf);
+    xgf << std::endl;
+    printTriangle (xgf, tr);
+  }
+};
 
-
-static void trRemove (int ix0, int ix1, int ix2,
-		      std::vector <Point<Number> > pntSet,
-		      int ctr)
-{
-  // TBD
-}
 
 int main (int argc, const char *argv[])
 {
   std::vector<Point<Number> > pntSet;
   char buf[BUFLEN+8];
-  int ctr = 0;
+  TrTrack trck;
   while (fgets (buf, BUFLEN, stdin)) {
     char* s = strtok (buf, " ");
     if (STREQ (dbgMarker.c_str(), s)) {
       s = strtok (NULL, " ");
       if (STREQ (s, "point")) {
-	printf ("-- %s --\n", s);
-	char* xp = strtok (NULL, " ");
-	char* yp = strtok (NULL, " ");
-	pntSet.push_back (Point<Number> (atof (xp), atof(yp)));
+	char* pNum = strtok (NULL, " ");
+	char* xp   = strtok (NULL, " ");
+	char* yp   = strtok (NULL, " ");
+	trck.pntAdd (atof (xp), atof(yp));
       }
       else if (STREQ("triangle", s)) {
 	char* ap   = strtok (NULL, " ");
@@ -52,9 +106,9 @@ int main (int argc, const char *argv[])
 	int ix1 = atoi(ixp1);
 	int ix2 = atoi(ixp2);
 	if      (STREQ ("added",   ap))
-	  trAdd    (ix0, ix1, ix2, pntSet, ctr++);
+	  trck.trAdd    (ix0, ix1, ix2);
 	else if (STREQ ("removed", ap))
-	  trRemove (ix0, ix1, ix2, pntSet, ctr++);
+	  trck.trRemove (ix0, ix1, ix2);
 	else
 	  throw std::runtime_error ("Unexpected token after triangle");
       }
@@ -62,5 +116,14 @@ int main (int argc, const char *argv[])
 	throw std::runtime_error ("Unexpected token after marker");
     }
   }
+
+  int numPoints = trck.pointSet.size();
+  for (int k=0; k<numPoints; k++) {
+    std::cout << "   Point " << k
+	      << "  " << trck.pointSet[k].x
+	      << "  " << trck.pointSet[k].y << std::endl;
+  }
+  
+
   return 0;
 }
