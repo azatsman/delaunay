@@ -5,13 +5,20 @@
 #include <iostream>
 #include <fstream>
 
+#ifndef DEBUG_TRIANG
+#define  DEBUG_TRIANG 0
+#endif
+
 int main (int argc, const char *argv[])
 {
   int gridWidth = 7;
   int gridHeight = 5;
   double delta = 0.0;  // amplitude of random deviation from the grid
 
-  bool runChecks = true;  // Checking takes long time for large arrays.
+  bool runChecks = false;  // Checking takes long time for large arrays.
+#if DEBUG_TRIANG
+  runChecks = true;
+#endif
 
   if (argc > 1)
     sscanf (argv[1], "%d", &gridWidth);

@@ -142,4 +142,22 @@ void dumpXG (const std::vector<Point<T> >& pntSet,
 }
 
 
+
+#if 0
+template<T> struct TriangleTracker {
+  std::vector<Point<T> > pointSet;
+  const std::string marker ("======");
+  void setPointSet (std::vector<P> pSet) {pointSet = pSet;};
+
+  markAddition (int ix0, int ix1, int ix2) {
+    std::cout << " ========= Added   Triangle "
+	      << a.ix0 << " " << a.ix1 << " " << a.ix2 << std::endl;
+  };
+  markRemoval (int ix0, int ix1, int ix2) {
+  };
+};
+#endif
+
+
+
 #endif /*INCLUDED_utils_hpp_28196287*/

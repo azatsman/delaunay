@@ -1,18 +1,24 @@
 // Test circumscribed circles
 
-#define WITH_CHECKS 0
-
 #include "triang.hpp"
 #include "utils.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
 
+#ifndef DEBUG_TRIANG
+#define  DEBUG_TRIANG 0
+#endif
+
 int main (int argc, const char *argv[])
 {
   int numPoints = 100;
-  bool runChecks = true;  // Checking can double the total execution time.
 
+  bool runChecks = false;  // Checking can double the total execution time.
+#if DEBUG_TRIANG
+  runChecks = true;
+#endif
+  
   if (argc > 1)
     sscanf (argv[1], "%d", &numPoints);
 

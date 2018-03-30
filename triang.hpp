@@ -5,13 +5,16 @@
 #include <set>
 #include <stdexcept>
 
-#ifndef DEBUG_PRINTS
-#define  DEBUG_PRINTS 0
+#ifndef DEBUG_TRIANG
+#define  DEBUG_TRIANG 0
 #endif
 
-#if DEBUG_PRINTS
+#if DEBUG_TRIANG
 #include <cstdio>
 #include <iostream>
+#include <iomanip>
+#include <string>
+static std::string dbgMarker ("========");
 #endif
 
 template <typename T> struct Point {  // 2D Point or vector
@@ -187,9 +190,11 @@ std::set <Triangle>::iterator findAdjacent (const std::set<Triangle>&  trSet,
 void removeTriangle (std::set<Triangle>& trSet,
 		     std::set<Triangle>::iterator tp)
 {
-#if DEBUG_PRINTS
-  std::cout << " ========= Removing Triangle "
-	    << tp->ix0 << "," << tp->ix1 << "," << tp->ix2 << std::endl;
+#if DEBUG_TRIANG
+  std::cout << dbgMarker << " triangle removed "
+	    << std::setw(4) << tp->ix0 << " "
+	    << std::setw(4)<< tp->ix1 << " "
+	    << std::setw(4)<< tp->ix2 << std::endl;
 #endif
   trSet.erase (tp);
 }
@@ -199,11 +204,12 @@ void addTriangle (int vertIx0, int vertIx1, int vertIx2,
 {
   Triangle a  (vertIx0, vertIx1, vertIx2);
   trSet.insert (a);
-#if DEBUG_PRINTS
-  std::cout << " ========= Added   Triangle "
-	    << a.ix0 << "," << a.ix1 << "," << a.ix2 << std::endl;
+#if DEBUG_TRIANG
+  std::cout << dbgMarker << " triangle added "
+	    << std::setw(4) << vertIx0 << " "
+	    << std::setw(4)<< vertIx1 << " "
+	    << std::setw(4)<< vertIx2 << std::endl;
 #endif
-  
 }
 
 // Add new triangle with a new point newPnt and old points oldPnt1, oldPnt2.
@@ -254,48 +260,6 @@ enum PointVsTriangle {Inside,           // Inside, away from the sides.
 		      Outside,          // Completely outside of this triangle.
 		      NoTriangles,      // No triangles found for the point
 		      Unknown};         // Usually happens because of an error.
-
-#if 0
-
-// Return true if two adjacent triangles
-//    (adjVert1, adjVert2, oppVert1)   and   (adjVert1, adjVert2, oppVert2)
-// are "non-Delaunay" and have to be flipped to 
-//    (adjVert1, oppVert1, oppVert2)   and   (adjVert2, oppVert1, oppVert2):
-
-template <typename T>
-bool mustFlip (int adjVert1, int adjVert2,
-	       int oppVert1, int oppVert2,
-	       std::vector<Point<T> > pntVector)
-{
-  Point<T>
-    adjPnt1 = pntVector[adjVert1],
-    adjPnt2 = pntVector[adjVert2],
-    oppPnt1 = pntVector[oppVert1],
-    oppPnt2 = pntVector[oppVert2];
-  return
-    isInCircumCircle (oppPnt2, adjPnt1, adjPnt2, oppPnt1);
-}
-
-// 
-
-template <typename T>
-void addSideTriangle (int newPnt,  int sidePnt1, int sidePnt2,
-		      std::vector<Point<T> > pntVector,
-		      std::set<Triangle>& trSet)
-{
-  int nbVert;
-  std::set<Triangle>::iterator adjTr = findAdjacent (trSet, sidePnt1, sidePnt2, newPnt, &nbVert);
-  if ((adjTr != trSet.end()) &&
-      (mustFlip (sidePnt1, sidePnt2, newPnt, nbVert, pntVector)) ) {
-    removeTriangle (trSet, adjTr);
-    addTriangle (newPnt, sidePnt1, nbVert, trSet);
-    addTriangle (newPnt, sidePnt2, nbVert, trSet);
-  }
-  else
-    addTriangle (newPnt, sidePnt1, sidePnt2, trSet);
-}
-#endif
-
 
 // Try inserting new point in the triangle.
 // Several cases depending on the returned value:
@@ -471,6 +435,15 @@ void expandStraightLine (int pntNew,
   }
 }
 
+// Given a set of points 'pSet' compute triangulation with Delaunay property,
+// i.e., for each point P in 'pSet' and each triangle R in the computed 'trSet'
+// either P is a vertex of R, or P does not inside the circle circumscribed around R.
+// Each Triangle object in 'trSet' contains indices of 3 points from pSet.
+// epsilon is  the relative (to distances between points) precision for
+// determining whether one point is too close to another (in which case it is ignored)
+// or whether point A is too close to a line connecting points B and C, in which
+// case  triangle A,B,C  is not created.
+
 template <typename T>
 void delaunay (const std::vector<Point<T> >& pSet,
                std::set <Triangle>&          trSet,
@@ -487,19 +460,23 @@ void delaunay (const std::vector<Point<T> >& pSet,
     // bool foundEnclosure = false;
     int sidePnt1, sidePnt2, oppPnt;
 
-#if DEBUG_PRINTS
+#if DEBUG_TRIANG
     int trNum = 0;
-    std::cout
-      <<  "Point " << pntNum
-      << " (" << pSet[pntNum].x << ", " << pSet[pntNum].y << ") "
-      << std::endl;
+    // std::cout << std::fixed;
+    // std::cout.precision (20);
+    // std::cout.width (30);
+    int pntWidth = 40, pntPrec=34;
+    std::cout << dbgMarker << " point "
+	      << std::setw(4) << pntNum << " " << std::fixed
+	      << std::setw(pntWidth) << std::setprecision (pntPrec) << pSet[pntNum].x << " "
+	      << std::setw(pntWidth) << std::setprecision (pntPrec) << pSet[pntNum].y << std::endl;
 #endif
     
     PointVsTriangle tryResult = NoTriangles;
 
     for (std::set<Triangle>::iterator tp = trSet.begin(); tp != trSet.end(); tp++) {
 
-#if DEBUG_PRINTS
+#if DEBUG_TRIANG
       //      printf ("Point %7d Triangle %7d of %7ld\n", pntNum, trNum++, trSet.size());
 #endif
       // Triangle tr = *tp;
@@ -512,7 +489,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
 				  &oppPnt,
 				  trSet);
 
-#if DEBUG_PRINTS
+#if DEBUG_TRIANG
       std::cout
 	//	<<  "Point " << pntNum
 	//	<< " (" << pSet[pntNum].x << ", " << pSet[pntNum].y << ") "
@@ -657,7 +634,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
 	break;
 
       default:
-#if DEBUG_PRINTS
+#if DEBUG_TRIANG
 	std::cerr << "   tryAngle returned " << tryResult << std::endl;
 #endif
 	throw std::runtime_error ("Bad result from tryTriangle");
