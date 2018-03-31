@@ -1,4 +1,3 @@
-
 #ifdef DEBUG_TRIANG
 #undef DEBUG_TRIANG
 #define DEBUG_TRIANG 1
@@ -9,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <stdexcept>
 #include <fstream>
 
@@ -29,6 +29,11 @@ struct TrTrack {
       p0 = pointSet [tr.ix0],
       p1 = pointSet [tr.ix1],
       p2 = pointSet [tr.ix2];
+
+    Number area = 0.5 * fabs (det (p1-p0,p2-p0));
+
+    f << " #### area "  << area
+      << " ix " << tr.ix0 << " " << tr.ix1 << " " << tr.ix2 << std::endl;
     f << "move " << p0.x << " " << p0.y << std::endl
       << "     " << p1.x << " " << p1.y << std::endl
       << "     " << p2.x << " " << p2.y << std::endl
@@ -54,7 +59,7 @@ struct TrTrack {
 
   void trAdd (int ix0, int ix1, int ix2) {
     std::ofstream xgf (nextFileName ());
-    xgf << "TitleText: Add triangle\n" << std::endl;
+    xgf << "TitleText: Add " << ix0 << " " << ix1 << " " << ix2 << std::endl;
     Triangle tr (ix0, ix1, ix2);
     dumpOldTriangles (xgf);
     xgf << std::endl;
@@ -65,7 +70,7 @@ struct TrTrack {
 
   void trRemove (int ix0, int ix1, int ix2) {
     std::ofstream xgf (nextFileName ());
-    xgf << "TitleText: Remove triangle\n" << std::endl;
+    xgf << "TitleText: Remove " << ix0 << " " << ix1 << " " << ix2 << std::endl;
     Triangle tr (ix0, ix1, ix2);
     triangleSet.erase (tr);
 
@@ -80,7 +85,6 @@ struct TrTrack {
     printTriangle (xgf, tr);
   }
 };
-
 
 int main (int argc, const char *argv[])
 {

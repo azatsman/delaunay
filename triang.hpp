@@ -71,6 +71,35 @@ template <typename T> Point<T> circumCtr (Point<T> a, Point<T> b, Point<T> c)
 // Return true if 'p' is inside the cirlce circumscribed around the triangle:
 // We return false if the point is exactly on the circle.
 
+#if 1
+template <typename T>
+bool isInCircumCircle (Point<T> D, Point<T> A, Point<T> B, Point<T> C)
+{
+  T
+    m11 = A.x - D.x,
+    m12 = A.y - D.y,
+    m13 = m11*m11 + m12*m12,
+
+    m21 = B.x - D.x,
+    m22 = B.y - D.y,
+    m23 = m21*m21 + m22*m22,
+
+    m31 = C.x - D.x,
+    m32 = C.y - D.y,
+    m33 = m31*m31 + m32*m32,
+    dt1 =
+    m11 * (m22 * m33 - m23 * m32) -
+    m12 * (m21 * m33 - m23 * m31) +
+    m13 * (m21 * m32 - m22 * m31),
+    dt2 =
+    (B.x -A.x) * (C.y-A.y) - (B.y-A.y)*(C.x-A.x);
+  return dt1*dt2 > 0;
+}
+
+
+
+#else
+
 template <typename T>
 bool isInCircumCircle (Point<T> p, Point<T> tp0, Point<T> tp1, Point<T> tp2)
 {
@@ -83,6 +112,7 @@ bool isInCircumCircle (Point<T> p, Point<T> tp0, Point<T> tp1, Point<T> tp2)
     pDist2 = distP.norm2();
   return pDist2 < r2;
 }
+#endif
 
 // Triangle contains indices of the points. It is only useful in the context
 // with an array or a vector of points.

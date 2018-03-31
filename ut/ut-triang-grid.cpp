@@ -38,7 +38,7 @@ int main (int argc, const char *argv[])
       pSet.push_back (Point<double> (ix + delta * (DRAND()-0.5),
 				     iy + delta * (DRAND()-0.5)));
 
-  delaunay (pSet, trSet);
+  delaunay (pSet, trSet, 1e-3);
 
   dumpXG (pSet, trSet, xgFileName);
   dumpPS (pSet, trSet, psFileName,
