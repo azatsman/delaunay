@@ -1,4 +1,4 @@
-// Test circumscribed circles
+// Test circumscribed circles by piping the output to 'xgraph'
 
 #include "triang.hpp"
 #include <cstdlib>
@@ -6,46 +6,26 @@
 
 int main (int argc, const char *argv[])
 {
-  int nn = 100000;
-  srand48 (17);
-  const char* fileName = "circum.log";
-  std::ofstream ofl (fileName);
-  
+  int seed = 17;
+  int nn = 99999;
+  if (argc > 1)
+    sscanf (argv[1], "%d", &seed);
+  if (argc > 2)
+    sscanf (argv[2], "%d", &nn);
+  srand48(seed);
+  Point<double>
+    a (drand48() - 0.5,drand48() - 0.5),
+    b (drand48() - 0.5,drand48() - 0.5),
+    c (drand48() - 0.5,drand48() - 0.5);
   for (int k=0; k<nn; k++) {
-    Point<double>
-      tp1 (drand48(), drand48()),
-      tp2 (drand48(), drand48()),
-      tp3 (drand48(), drand48()),
-      ctr = circumCtr (tp1, tp2, tp3);
-
-#if 1
-    if (k == 0) {
-      std::ofstream xgf ("circum.xg");
-      xgf
-	<< "\"Triangle xg \"" << std::endl
-	<< tp1.x << " " << tp1.y  << std::endl
-	<< tp2.x << " " << tp2.y  << std::endl
-	<< tp3.x << " " << tp3.y  << std::endl
-	<< tp1.x << " " << tp1.y  << std::endl
-	<< std::endl
-	<< "\"Ctr  xg \"" << std::endl
-	<< " move " << ctr.x << " " << ctr.y  << std::endl
-	<< "      " << tp1.x << " " << tp1.y  << std::endl
-	<< " move " << ctr.x << " " << ctr.y  << std::endl
-	<< "      " << tp2.x << " " << tp2.y  << std::endl
-	<< " move " << ctr.x << " " << ctr.y  << std::endl
-	<< "      " << tp3.x << " " << tp3.y  << std::endl;
-    }
-#endif
-
-    double
-      d1 = (tp1 - ctr).norm2(),
-      d2 = (tp2 - ctr).norm2(),
-      d3 = (tp3 - ctr).norm2(),
-      d12 = d2 - d1,
-      d13 = d3 - d1,
-      dd = d12*d12 + d13*d13;
-    ofl << dd << " err " << std::endl;
+    Point<double> p (2*(drand48()-0.5), 2*(drand48()-0.5));
+    if (isInCircumCircle (p, a, b, c))
+      printf ("%lf %lf\n", p.x, p.y);
   }
+  printf ("\n\n");
+  printf ("%lf %lf\n", a.x, a.y);
+  printf ("%lf %lf\n", b.x, b.y);
+  printf ("%lf %lf\n", c.x, c.y);
+  printf ("%lf %lf\n", a.x, a.y);
   return 0;
 }

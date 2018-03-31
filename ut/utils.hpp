@@ -34,6 +34,9 @@ public:
 // an adjacent triangle. If an adjacent point lies inside the circumscribed circle then
 // DelaunayError exception is raised.
 
+
+#define CHECK_FLIPPED 1
+
 template <typename T>
 void delaunayCheck (const std::vector<Point<T> >& pSet,
 		    const std::set <Triangle>&    trSet)
@@ -42,21 +45,43 @@ void delaunayCheck (const std::vector<Point<T> >& pSet,
     Triangle tr = *q;
     std::set <Triangle>::iterator ap;
     int adjPnt;
-    Point<T> ccCtr = circumCtr<T> (pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2]);
-    T ccRad2 = (pSet[tr.ix0] - ccCtr).norm2();
+
     if ((ap=findAdjacent (trSet, tr.ix0, tr.ix1, tr.ix2,  &adjPnt)) != trSet.end()) {
-      if ((pSet[adjPnt] - ccCtr).norm2() < ccRad2)
+      if (isInCircumCircle (pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])
+#if CHECK_FLIPPED
+	  && ! isInCircumCircle (pSet[tr.ix0], pSet[adjPnt], pSet[tr.ix1], pSet[tr.ix2])
+#endif
+	    )
 	throw  DelaunayError<T> (pSet, tr, adjPnt);
     }
     if ((ap=findAdjacent (trSet, tr.ix1, tr.ix2, tr.ix0,  &adjPnt)) != trSet.end()) {
-      if ((pSet[adjPnt] - ccCtr).norm2() < ccRad2)
+      if (isInCircumCircle (pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])
+#if CHECK_FLIPPED
+	  && ! isInCircumCircle (pSet[tr.ix1], pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix2])
+#endif
+	  )
 	throw  DelaunayError<T> (pSet, tr, adjPnt);
     }
     if ((ap=findAdjacent (trSet, tr.ix2, tr.ix0, tr.ix1,  &adjPnt)) != trSet.end()) {
-      if ((pSet[adjPnt] - ccCtr).norm2() < ccRad2)
+      if (isInCircumCircle (pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])
+#if CHECK_FLIPPED
+	  && ! isInCircumCircle (pSet[tr.ix0], pSet[adjPnt], pSet[tr.ix1], pSet[tr.ix2])
+#endif
+	  )
 	throw  DelaunayError<T> (pSet, tr, adjPnt);
     }
   }
+}
+
+template<typename T>
+void dumpPair (std::ostream& s, T x, T y)
+{
+  int ww = 40, prec = 35;
+  s
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << y;
 }
 
 // Output info about Delaunay error in 'xgraph' format:
@@ -64,25 +89,73 @@ void delaunayCheck (const std::vector<Point<T> >& pSet,
 template <typename T>
 void dumpDelaunayError (const DelaunayError<T>& de, const char* fileName)
 {
+  int
+    tix0 = de.triangle.ix0,
+    tix1 = de.triangle.ix1,
+    tix2 = de.triangle.ix2;
   Point<T>
-    tp0 = de.pointSet[de.triangle.ix0],
-    tp1 = de.pointSet[de.triangle.ix1],
-    tp2 = de.pointSet[de.triangle.ix2],
+    tp0 = de.pointSet[tix0],
+    tp1 = de.pointSet[tix1],
+    tp2 = de.pointSet[tix2],
     pnt = de.pointSet[de.pointNum];
   std::ofstream ofl(fileName);
   ofl << "\"Triangle\"" << std::endl;
-  ofl << tp0.x << " " << tp0.y << std::endl;
-  ofl << tp1.x << " " << tp1.y << std::endl;
-  ofl << tp2.x << " " << tp2.y << std::endl;
-  ofl << tp0.x << " " << tp0.y << std::endl;
-  ofl << std::endl;
-  ofl << "\"" << "Point" << "\"" << std::endl;
-  ofl << "move " << pnt.x << " " << pnt.y << std::endl;
-  ofl << tp0.x << " " << tp0.y << std::endl;
-  ofl << "move " << pnt.x << " " << pnt.y << std::endl;
-  ofl << tp1.x << " " << tp1.y << std::endl;
-  ofl << "move " << pnt.x << " " << pnt.y << std::endl;
-  ofl << tp2.x << " " << tp2.y << std::endl;
+
+  int ww = 40, prec = 35;
+
+  //  dumpPair (ofl, tp0.x, tp0.y);
+  ofl
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp0.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp0.y << " ## " << tix0 << std::endl
+    //  ofl << " ## " << tix0 << std::endl;
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp1.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp1.y << " ## " << tix1 << std::endl
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp2.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp2.y << " ## " << tix2 << std::endl
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp0.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp0.y << " ## " << tix0 << std::endl
+    << std::endl
+
+    << "\"" << "Point" << "\"" << std::endl
+
+    << "move "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << pnt.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << pnt.y << " ## pnt " << de.pointNum << std::endl
+    << "     "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp0.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp0.y << std::endl
+    << "move "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << pnt.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << pnt.y << std::endl
+    << "     "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp1.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp1.y << std::endl
+    << "move " 
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << pnt.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << pnt.y << std::endl
+    << "     "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp2.x << " "
+    << std::fixed << std::setw(ww) << std::setprecision (prec)
+    << tp2.y << std::endl;
 }
 
 // Dump the triangles in PostScript format (expects a set of points in [0,1]x[0,1] square):

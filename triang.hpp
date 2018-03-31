@@ -55,18 +55,6 @@ template <typename T> bool isInside (Point<T> p, Point<T> t0,Point<T> t1,Point<T
 // Return the center of the circle containing points 'a', 'b' and 'c':
 // Note: no checking is made to make sure that the points do not lie on the same line.
 
-template <typename T> Point<T> circumCtr (Point<T> a, Point<T> b, Point<T> c)
-{
-  T
-    D = 2*(a.x*(b.y-c.y) + b.x*(c.y-a.y) + c.x*(a.y-b.y)),
-    Dinv = 1.0 / D,
-    a2 = Dinv * a.norm2(),
-    b2 = Dinv * b.norm2(),
-    c2 = Dinv * c.norm2();
-  Point<T> rslt (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y),
-                 a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x));
-  return rslt;
-}
 
 // Return true if 'p' is inside the cirlce circumscribed around the triangle:
 // We return false if the point is exactly on the circle.
@@ -99,6 +87,19 @@ bool isInCircumCircle (Point<T> D, Point<T> A, Point<T> B, Point<T> C)
 
 
 #else
+
+template <typename T> Point<T> circumCtr (Point<T> a, Point<T> b, Point<T> c)
+{
+  T
+    D = 2*(a.x*(b.y-c.y) + b.x*(c.y-a.y) + c.x*(a.y-b.y)),
+    Dinv = 1.0 / D,
+    a2 = Dinv * a.norm2(),
+    b2 = Dinv * b.norm2(),
+    c2 = Dinv * c.norm2();
+  Point<T> rslt (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y),
+                 a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x));
+  return rslt;
+}
 
 template <typename T>
 bool isInCircumCircle (Point<T> p, Point<T> tp0, Point<T> tp1, Point<T> tp2)
@@ -220,7 +221,7 @@ std::set <Triangle>::iterator findAdjacent (const std::set<Triangle>&  trSet,
 void removeTriangle (std::set<Triangle>& trSet,
 		     std::set<Triangle>::iterator tp)
 {
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 2
   std::cout << dbgMarker << " triangle removed "
 	    << std::setw(4) << tp->ix0 << " "
 	    << std::setw(4) << tp->ix1 << " "
@@ -234,7 +235,7 @@ void addTriangle (int vertIx0, int vertIx1, int vertIx2,
 {
   Triangle a  (vertIx0, vertIx1, vertIx2);
   trSet.insert (a);
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 2
   std::cout << dbgMarker << " triangle added "
 	    << std::setw(4) << vertIx0 << " "
 	    << std::setw(4) << vertIx1 << " "
@@ -490,7 +491,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
     // bool foundEnclosure = false;
     int sidePnt1, sidePnt2, oppPnt;
 
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 2
     int trNum = 0;
     // std::cout << std::fixed;
     // std::cout.precision (20);
@@ -506,7 +507,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
 
     for (std::set<Triangle>::iterator tp = trSet.begin(); tp != trSet.end(); tp++) {
 
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 2
       //      printf ("Point %7d Triangle %7d of %7ld\n", pntNum, trNum++, trSet.size());
 #endif
       // Triangle tr = *tp;
@@ -519,7 +520,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
 				  &oppPnt,
 				  trSet);
 
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 2
       std::cout
 	//	<<  "Point " << pntNum
 	//	<< " (" << pSet[pntNum].x << ", " << pSet[pntNum].y << ") "
@@ -664,7 +665,7 @@ void delaunay (const std::vector<Point<T> >& pSet,
 	break;
 
       default:
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 2
 	std::cerr << "   tryAngle returned " << tryResult << std::endl;
 #endif
 	throw std::runtime_error ("Bad result from tryTriangle");

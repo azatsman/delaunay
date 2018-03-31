@@ -1,6 +1,11 @@
-#CXXFLAGS = -O3 -Wall -I..
 
-CXXFLAGS = -g -Wall -I.. -DDEBUG_TRIANG=1
+DEBUG_TRIANG = 2
+
+ifeq ($(DEBUG_TRIANG), 0)
+CXXFLAGS = -O3 -Wall -I..
+else
+CXXFLAGS = -g -Wall -I.. -DDEBUG_TRIANG=$(DEBUG_TRIANG)
+endif
 
 ut-isinside: ut-isinside.cpp ../triang.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
@@ -17,7 +22,7 @@ ut-circum: ut-circum.cpp ../triang.hpp
 dump-xg-frames: dump-xg-frames.cpp ../triang.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lm
 
-TARGETS = ut-isinside  ut-circum  ut-triang-grid  ut-triang-random dump-xg-frames
+TARGETS = ut-isinside  ut-triang-grid  ut-triang-random dump-xg-frames ut-circum
 
 all: $(TARGETS)
 

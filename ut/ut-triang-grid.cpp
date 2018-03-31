@@ -6,7 +6,7 @@
 #include <fstream>
 
 #ifndef DEBUG_TRIANG
-#define  DEBUG_TRIANG 0
+#define DEBUG_TRIANG 0
 #endif
 
 int main (int argc, const char *argv[])
@@ -16,7 +16,7 @@ int main (int argc, const char *argv[])
   double delta = 0.0;  // amplitude of random deviation from the grid
 
   bool runChecks = false;  // Checking takes long time for large arrays.
-#if DEBUG_TRIANG
+#if DEBUG_TRIANG >= 1
   runChecks = true;
 #endif
 
@@ -55,6 +55,5 @@ int main (int argc, const char *argv[])
       dumpDelaunayError (de, dumpName);
     }
   }
-
   return 0;
 }
