@@ -1,7 +1,8 @@
 #ifdef DEBUG_TRIANG
 #undef DEBUG_TRIANG
-#define DEBUG_TRIANG 1
 #endif
+
+#define DEBUG_TRIANG 1
 
 #include "triang.hpp"
 
@@ -10,6 +11,7 @@
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
+#include <iostream>
 #include <fstream>
 
 #define BUFLEN 1024
@@ -96,7 +98,8 @@ int main (int argc, const char *argv[])
     if (STREQ (dbgMarker.c_str(), s)) {
       s = strtok (NULL, " ");
       if (STREQ (s, "point")) {
-	char* pNum = strtok (NULL, " ");
+	// char* pNum = strtok (NULL, " ");
+	(void) strtok (NULL, " ");
 	char* xp   = strtok (NULL, " ");
 	char* yp   = strtok (NULL, " ");
 	trck.pntAdd (atof (xp), atof(yp));

@@ -2,6 +2,8 @@
 #define INCLUDED_utils_hpp_28196287
 
 #include "triang.hpp"
+#include <iostream>
+#include <iomanip>
 #include <fstream>
 
 #include <cstdlib>
@@ -15,19 +17,17 @@
 // This exception is thrown by 'delaunayCheck'.
 
 template <typename T>
-class DelaunayError : public std::runtime_error {
+class DelaunayError {
 public:
   std::vector<Point<T> > pointSet;
   Triangle triangle;
   int pointNum;
-
   DelaunayError (const std::vector<Point<T> >& pSet, Triangle tr, int pNum) :
-    std::runtime_error ("Delaunay Error"),
     pointSet(pSet),
     triangle(tr),
     pointNum(pNum)
   {}
-  ~DelaunayError () throw() {};
+  //  ~DelaunayError () throw() {};
 };
 
 // Check every triangles against every "adjacent point", i.e. the farther point from
@@ -35,42 +35,168 @@ public:
 // DelaunayError exception is raised.
 
 
-#define CHECK_FLIPPED 1
+#define CHECK_FLIPPED 0
+
+template <typename T> void checkOneSide (const std::vector<Point<T> >& pSet,
+					 const std::set <Triangle>&    trSet,
+					 int ix0, int ix1, int ix2,
+					 T absEpsilon2)
+{
+  int adjPnt;
+  std::set <Triangle>::iterator ap;
+  if ((ap=findAdjacent (trSet, ix0, ix1, ix2,  &adjPnt)) != trSet.end()) {
+    if ((circumCirclePosition (pSet[adjPnt], pSet[ix0], pSet[ix1], pSet[ix2]) > absEpsilon2)
+	
+#if CHECK_FLIPPED
+	&& ! isInCircumCircle (pSet[ix0], pSet[adjPnt], pSet[ix1], pSet[ix2])
+#endif
+	)
+      {
+	if (isInCircumCircle (pSet[ix2], pSet[ix0], pSet[ix1], pSet[adjPnt])) {
+	  std::cerr << "Symmetric error" << std::endl;
+	  throw  DelaunayError<T> (pSet, Triangle (ix0, ix1, ix2), adjPnt);
+	}
+	else
+	  std::cerr << "WARNING: Asymmetric error !!! " << std::endl;
+      }
+  }
+}
+
 
 template <typename T>
 void delaunayCheck (const std::vector<Point<T> >& pSet,
-		    const std::set <Triangle>&    trSet)
+		    const std::set <Triangle>&    trSet,
+		    T relEpsilon2 = static_cast<T> (1e-10))
 {
   for (std::set<Triangle>::const_iterator q=trSet.begin(); q != trSet.end(); q++) {
     Triangle tr = *q;
-    std::set <Triangle>::iterator ap;
-    int adjPnt;
 
-    if ((ap=findAdjacent (trSet, tr.ix0, tr.ix1, tr.ix2,  &adjPnt)) != trSet.end()) {
-      if (isInCircumCircle (pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])
-#if CHECK_FLIPPED
-	  && ! isInCircumCircle (pSet[tr.ix0], pSet[adjPnt], pSet[tr.ix1], pSet[tr.ix2])
-#endif
-	    )
-	throw  DelaunayError<T> (pSet, tr, adjPnt);
-    }
-    if ((ap=findAdjacent (trSet, tr.ix1, tr.ix2, tr.ix0,  &adjPnt)) != trSet.end()) {
-      if (isInCircumCircle (pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])
-#if CHECK_FLIPPED
-	  && ! isInCircumCircle (pSet[tr.ix1], pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix2])
-#endif
-	  )
-	throw  DelaunayError<T> (pSet, tr, adjPnt);
-    }
-    if ((ap=findAdjacent (trSet, tr.ix2, tr.ix0, tr.ix1,  &adjPnt)) != trSet.end()) {
-      if (isInCircumCircle (pSet[adjPnt], pSet[tr.ix0], pSet[tr.ix1], pSet[tr.ix2])
-#if CHECK_FLIPPED
-	  && ! isInCircumCircle (pSet[tr.ix0], pSet[adjPnt], pSet[tr.ix1], pSet[tr.ix2])
-#endif
-	  )
-	throw  DelaunayError<T> (pSet, tr, adjPnt);
+    Point<T>
+      d01 = pSet[tr.ix1] - pSet[tr.ix0],
+      d12 = pSet[tr.ix2] - pSet[tr.ix1],
+      d20 = pSet[tr.ix0] - pSet[tr.ix2];
+    T
+      roughSize2 = d01.norm2() + d12.norm2() + d20.norm2(),
+      absEpsilon2 = relEpsilon2 * roughSize2;
+    checkOneSide (pSet, trSet, tr.ix0, tr.ix1, tr.ix2, absEpsilon2);
+    checkOneSide (pSet, trSet, tr.ix1, tr.ix2, tr.ix0, absEpsilon2);
+    checkOneSide (pSet, trSet, tr.ix2, tr.ix0, tr.ix1, absEpsilon2);
+  }
+}
+
+template <>
+void delaunayCheck<int> (const std::vector<Point<int> >& pSet,
+			 const std::set <Triangle>&    trSet,
+			 int relEpsilon2)
+{
+  std::vector<Point<double> > pSet2;
+  pointVectorToDouble (pSet, pSet2);
+  delaunayCheck<double> (pSet2, trSet, relEpsilon2);
+}
+
+struct Edge {
+  int ix0;
+  int ix1;
+  Edge (int a, int b) : ix0(a), ix1(b) {
+    if (ix0 > ix1)
+      std::swap (ix0, ix1);
+  }
+
+  bool operator< (const Edge& e) const {
+    if (ix0 < e.ix0)
+      return true;
+    else if (ix0 > e.ix0)
+      return false;
+    else
+      return (ix1 < e.ix1);
+  }
+
+  bool adjoins (const Edge& e) const {
+    return
+      (ix0 == e.ix0) ||
+      (ix0 == e.ix1) ||
+      (ix1 == e.ix0) ||
+      (ix1 == e.ix1);
+  }
+
+  template <typename T>
+  bool crosses (const Edge& e, std::vector<Point<T> > pSet) const {
+    Point<T>
+      a (pSet[ix0]),
+      b (pSet[ix1]),
+      c (pSet[e.ix0]),
+      d (pSet[e.ix1]),
+      p (c-a),
+      z (0,0),
+      c0 (0, 0),
+      c1 (b-a),
+      c3 (c-d),
+      c2 (c1+c3);
+    T
+      d01 = det (c0-p,c1-p),
+      d12 = det (c1-p,c2-p),
+      d23 = det (c2-p,c3-p),
+      d30 = det (c3-p,c0-p);
+    //   std::cout << d01 << " " << d12 << " " << d23 << " " << d30 << std::endl;
+
+    // Result is true if all determinants have the same sign:
+
+    bool rslt = (((d01 > 0) && (d12 > 0) && (d23 > 0) && (d30 > 0)) ||
+		 ((d01 < 0) && (d12 < 0) && (d23 < 0) && (d30 < 0)));
+    return rslt;
+  };
+};
+
+
+template <typename T>
+class EdgeCrossError {
+public:
+  std::vector<Point<T> > pointSet;
+  Edge e1;
+  Edge e2;
+  
+  EdgeCrossError (const std::vector<Point<T> >& pSet, Edge e1, Edge e2) :
+    // std::runtime_error ("Edge Crossing Error"),
+    pointSet(pSet),
+    e1 (e1),
+    e2 (e2)
+  {}
+  //  ~EdgeCrossError () throw() {};
+};
+
+template <typename T>
+void edgeCrossingCheck (const std::vector<Point<T> >& pSet,
+			const std::set <Triangle>&    trSet)
+{
+  //  std::vector<Edge> edgeArray;
+
+  std::set   <Edge> edgeSet;
+  for (std::set<Triangle>::const_iterator tp = trSet.begin(); tp != trSet.end(); tp++) {
+    edgeSet.insert (Edge (tp->ix0, tp->ix1));
+    edgeSet.insert (Edge (tp->ix0, tp->ix2));
+    edgeSet.insert (Edge (tp->ix1, tp->ix2));
+  }
+  for   (std::set<Edge>::const_iterator p1 = edgeSet.begin(); p1 != edgeSet.end(); p1++) {
+    std::set<Edge>::const_iterator p2 = p1;
+    p2++;
+    for (; p2 != edgeSet.end(); p2++) {
+      if ((! p1->adjoins(*p2)) && (p1->crosses (*p2, pSet)))
+	throw EdgeCrossError<T> (pSet, *p1, *p2);
     }
   }
+  //    for (std::set<Edge>::const_iterator ep = edgeSet.begin; ep != edgeSet.end(); ep++)
+  //      edgeArray.push_back (*ep);
+}
+
+// Convert integers to doubles because integers tend to overflow:
+
+template <>
+void edgeCrossingCheck<int> (const std::vector<Point<int> >& pSet,
+			     const std::set <Triangle>&    trSet)
+{
+  std::vector<Point<double> > pSet2;
+  pointVectorToDouble (pSet, pSet2);
+  edgeCrossingCheck<double> (pSet2, trSet);
 }
 
 template<typename T>
@@ -84,7 +210,27 @@ void dumpPair (std::ostream& s, T x, T y)
     << y;
 }
 
-// Output info about Delaunay error in 'xgraph' format:
+// Output info about edge crossing error in 'xgraph' format:
+
+template <typename T>
+void dumpEdgeCrossError (const EdgeCrossError<T>& ee, const char* fileName)
+{
+  Point<T>
+    a0 = ee.pointSet[ee.e1.ix0],
+    a1 = ee.pointSet[ee.e1.ix1],
+    b0 = ee.pointSet[ee.e2.ix0],
+    b1 = ee.pointSet[ee.e2.ix1];
+  std::ofstream ofl(fileName);
+  ofl
+    << "TitleText: Crossing Edges" << std::endl
+    << "\"Points  " << ee.e1.ix0 << ", " << ee.e1.ix1 << std::endl
+    << a0.x << " " << a0.y << std::endl
+    << a1.x << " " << a1.y << std::endl
+    << std::endl
+    << "\"Points  " << ee.e2.ix0 << ", " << ee.e2.ix1 << std::endl
+    << b0.x << " " << b0.y << std::endl
+    << b1.x << " " << b1.y << std::endl;
+}
 
 template <typename T>
 void dumpDelaunayError (const DelaunayError<T>& de, const char* fileName)
@@ -206,31 +352,18 @@ void dumpXG (const std::vector<Point<T> >& pntSet,
   xgf << "TitleText: " << pntSet.size() << " points "
       << trSet.size() << " triangles" << std::endl;
   for (std::set<Triangle>::const_iterator q = trSet.begin(); q != trSet.end(); q++) {
+
+    Point<T>
+      p0 = pntSet[q->ix0],
+      p1 = pntSet[q->ix1],
+      p2 = pntSet[q->ix2];
+    T area = 0.5 * det (p1-p0, p2-p1);
     xgf
-      << "move " << pntSet[q->ix0].x << " " <<  pntSet[q->ix0].y << std::endl
-      << "     " << pntSet[q->ix1].x << " " <<  pntSet[q->ix1].y << std::endl
-      << "     " << pntSet[q->ix2].x << " " <<  pntSet[q->ix2].y << std::endl
-      << "     " << pntSet[q->ix0].x << " " <<  pntSet[q->ix0].y << std::endl;
+      << "move " << p0.x << " " <<  p0.y << " ## area " << area << std::endl
+      << "     " << p1.x << " " <<  p1.y << std::endl
+      << "     " << p2.x << " " <<  p2.y << std::endl
+      << "     " << p0.x << " " <<  p0.y << std::endl;
   }
 }
-
-
-
-#if 0
-template<T> struct TriangleTracker {
-  std::vector<Point<T> > pointSet;
-  const std::string marker ("======");
-  void setPointSet (std::vector<P> pSet) {pointSet = pSet;};
-
-  markAddition (int ix0, int ix1, int ix2) {
-    std::cout << " ========= Added   Triangle "
-	      << a.ix0 << " " << a.ix1 << " " << a.ix2 << std::endl;
-  };
-  markRemoval (int ix0, int ix1, int ix2) {
-  };
-};
-#endif
-
-
 
 #endif /*INCLUDED_utils_hpp_28196287*/

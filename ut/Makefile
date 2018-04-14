@@ -1,30 +1,35 @@
 
-DEBUG_TRIANG = 2
+DEBUG_TRIANG = 0
 
 ifeq ($(DEBUG_TRIANG), 0)
-CXXFLAGS = -O3 -Wall -I..
+CXXFLAGS = -O3
 else
-CXXFLAGS = -g -Wall -I.. -DDEBUG_TRIANG=$(DEBUG_TRIANG)
+CXXFLAGS = -g
 endif
 
-ut-isinside: ut-isinside.cpp ../triang.hpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+CXXFLAGS +=  -Wall -I..
+CXXFLAGS +=  -DDEBUG_TRIANG=$(DEBUG_TRIANG)
+CXXFLAGS += -ftrapv
 
-ut-triang-random: ut-triang-random.cpp ../triang.hpp utils.hpp
+ut-random: ut-random.cpp ../triang.hpp utils.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lm
 
-ut-triang-grid: ut-triang-grid.cpp ../triang.hpp utils.hpp
+ut-random-grid: ut-random-grid.cpp ../triang.hpp utils.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lm
 
-ut-circum: ut-circum.cpp ../triang.hpp
+ut-grid: ut-grid.cpp ../triang.hpp utils.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lm
 
-dump-xg-frames: dump-xg-frames.cpp ../triang.hpp
+ut-greg2: ut-greg2.cpp ../triang.hpp utils.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lm
 
-TARGETS = ut-isinside  ut-triang-grid  ut-triang-random dump-xg-frames ut-circum
+ut-greg1: ut-greg1.cpp ../triang.hpp utils.hpp
+	$(CXX) $(CXXFLAGS) -o $@ $< -lm
+
+TARGETS = ut-isinside ut-grid ut-random-grid  ut-random dump-xg-frames ut-circum \
+	ut-greg1 ut-greg2 ut-seg-cross
 
 all: $(TARGETS)
 
 clean:
-	rm -rf *.o *~ $(TARGETS) *.xg *.ps
+	rm -rf *.o *~ $(TARGETS) *.xg *.ps *.log

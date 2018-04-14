@@ -14,7 +14,6 @@ int main (int argc, const char *argv[])
   int gridWidth = 7;
   int gridHeight = 5;
   double delta = 0.0;  // amplitude of random deviation from the grid
-
   bool runChecks = false;  // Checking takes long time for large arrays.
 #if DEBUG_TRIANG >= 1
   runChecks = true;
@@ -37,21 +36,27 @@ int main (int argc, const char *argv[])
     for (int ix=0; ix<gridWidth; ix++)
       pSet.push_back (Point<double> (ix + delta * (DRAND()-0.5),
 				     iy + delta * (DRAND()-0.5)));
-
-  delaunay (pSet, trSet, 1e-3);
+  delaunay (pSet, trSet);
 
   dumpXG (pSet, trSet, xgFileName);
   dumpPS (pSet, trSet, psFileName,
-	  static_cast<double> (gridWidth), static_cast<double> (gridHeight));
-
+	  static_cast<double> (gridWidth-1), static_cast<double> (gridHeight-1));
   if (runChecks) {
     try {
-      delaunayCheck (pSet, trSet);
+      delaunayCheck (pSet, trSet, 1e-10);
     }
     catch (DelaunayError<double> de) {
       const char* dumpName = "delaunay-error.xg";
+      Point<double>
+	oppPnt = pSet[de.pointNum],
+	p0 = de.pointSet[de.triangle.ix0],
+	p1 = de.pointSet[de.triangle.ix1],
+	p2 = de.pointSet[de.triangle.ix2];
+      double errVal =
+	circumCirclePosition (oppPnt, p0, p1, p2);
       std::cerr
-	<< " DelaunayError EXCEPTION caught. Dumping to \"" << dumpName << "\"" << std::endl;
+	<< " Delaunay ERROR: " << errVal << 
+	"; Dumping points to \"" << dumpName << "\"" << std::endl;
       dumpDelaunayError (de, dumpName);
     }
   }

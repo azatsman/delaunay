@@ -1,4 +1,9 @@
-// Test circumscribed circles by piping the output to 'xgraph'
+// Check circumscribed circles by piping the output to 'xgraph'
+//
+// The program generates random triangle, then for each random point
+//   it prints it out only when the point is inside the circle circumscribed around the triangle.
+// Displaying results by 'xgraph' allows visually assess the correctness of the 'isInCircumCircle'
+//   function
 
 #include "triang.hpp"
 #include <cstdlib>

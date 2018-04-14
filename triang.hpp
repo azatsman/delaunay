@@ -1,9 +1,12 @@
 #ifndef INCLUDED_triang_hpp_85662733
 #define INCLUDED_triang_hpp_85662733
 
+#include "dtypes.hpp"
+
 #include <vector>
 #include <set>
 #include <stdexcept>
+#include <algorithm>
 
 #ifndef DEBUG_TRIANG
 #define  DEBUG_TRIANG 0
@@ -17,30 +20,6 @@
 static std::string dbgMarker ("========");
 #endif
 
-template <typename T> struct Point {  // 2D Point or vector
-  T x;
-  T y;
-  Point<T> (T xx, T yy) : x(xx), y(yy) {};
-  Point<T> operator+(Point<T> p) const {return Point<T> (x+p.x, y+p.y);};
-  Point<T> operator-(Point<T> p) const {return Point<T> (x-p.x, y-p.y);};
-  T dot   (Point<T> p) const {return x*p.x + y*p.y;}
-  T norm2 ()           const {return (x*x+y*y);};
-};
-
-// Return the determinant of the matrix formed by 'a' and 'b'
-
-template <typename T> T det (Point<T> a, Point<T> b)
-{
-  return (a.x*b.y - a.y*b.x);
-}
-
-template <typename T>  bool clockwise (Point<T> a, Point<T> b)
-{
-  return det (a,b) < 0;
-}
-
-
-
 // Return true if point 'p' is inside the triangle formed by points 't0','t1' and 't2':
 
 template <typename T> bool isInside (Point<T> p, Point<T> t0,Point<T> t1,Point<T> t2)
@@ -52,16 +31,14 @@ template <typename T> bool isInside (Point<T> p, Point<T> t0,Point<T> t1,Point<T
   return (d01*d12 > 0) && (d12*d20 > 0) && (d20*d01 > 0);
 }
 
-// Return the center of the circle containing points 'a', 'b' and 'c':
-// Note: no checking is made to make sure that the points do not lie on the same line.
+// Return a number indicating position of 'D' relative to the circle succumscribed
+// round triangle ABC. The result is:
+// -- zero     if 'D' lies on the circle;
+// -- negative if 'D' lies outside the circle
+// -- positive if 'D' lies inside the circle
 
-
-// Return true if 'p' is inside the cirlce circumscribed around the triangle:
-// We return false if the point is exactly on the circle.
-
-#if 1
 template <typename T>
-bool isInCircumCircle (Point<T> D, Point<T> A, Point<T> B, Point<T> C)
+T circumCirclePosition (Point<T> D, Point<T> A, Point<T> B, Point<T> C)
 {
   T
     m11 = A.x - D.x,
@@ -75,117 +52,33 @@ bool isInCircumCircle (Point<T> D, Point<T> A, Point<T> B, Point<T> C)
     m31 = C.x - D.x,
     m32 = C.y - D.y,
     m33 = m31*m31 + m32*m32,
+
+#if 0
+    dummy =
+    printf (" %d %d %d %d %d %d %d %d %d  ccpos\n",
+	    m11, m12, m13, m21, m22, m23, m31, m32, m33),
+#endif
+    
     dt1 =
     m11 * (m22 * m33 - m23 * m32) -
     m12 * (m21 * m33 - m23 * m31) +
     m13 * (m21 * m32 - m22 * m31),
     dt2 =
     (B.x -A.x) * (C.y-A.y) - (B.y-A.y)*(C.x-A.x);
-  return dt1*dt2 > 0;
+  return dt2 > 0 ? dt1 : -dt1;
+  //  return dt1* copysign (1, dt2);
 }
 
 
-
-#else
-
-template <typename T> Point<T> circumCtr (Point<T> a, Point<T> b, Point<T> c)
-{
-  T
-    D = 2*(a.x*(b.y-c.y) + b.x*(c.y-a.y) + c.x*(a.y-b.y)),
-    Dinv = 1.0 / D,
-    a2 = Dinv * a.norm2(),
-    b2 = Dinv * b.norm2(),
-    c2 = Dinv * c.norm2();
-  Point<T> rslt (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y),
-                 a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x));
-  return rslt;
-}
+// Return true if point 'D' is inside the cirlce circumscribed around the triangle A,B,C:
+// We return false if the point is exactly on the circle.
 
 template <typename T>
-bool isInCircumCircle (Point<T> p, Point<T> tp0, Point<T> tp1, Point<T> tp2)
+bool isInCircumCircle (Point<T> D, Point<T> A, Point<T> B, Point<T> C)
 {
-  Point<T>
-    ctr   = circumCtr (tp0, tp1, tp2),
-    dist0 = tp0 - ctr,
-    distP = p   - ctr;
-  T
-    r2     = dist0.norm2(),
-    pDist2 = distP.norm2();
-  return pDist2 < r2;
+  return circumCirclePosition (D,A,B,C) > 0;
 }
-#endif
-
-// Triangle contains indices of the points. It is only useful in the context
-// with an array or a vector of points.
-
-struct Triangle {
-  int ix0;
-  int ix1;
-  int ix2;
-
-  // We keep indices sorted:
-
-  Triangle (int i0, int i1, int i2) {
-    if (i0 > i1)
-      std::swap (i0, i1);
-    if (i1 > i2)
-      std::swap (i1, i2);
-    if (i0 > i1)
-      std::swap (i0, i1);
-    ix0 = i0;
-    ix1 = i1;
-    ix2 = i2;
-  }
-
-  // Operator '<' is required for operations on sets of triangles. The operator relies on
-  // indices being in ascending order:
-
-  bool operator< (Triangle that) const {
-    if (ix0 < that.ix0)
-      return true;
-    if (ix0 > that.ix0)
-      return false;
-    if (ix1 < that.ix1)
-      return true;
-    if (ix1 > that.ix1)
-      return false;
-    if (ix2 < that.ix2)
-      return true;
-    else
-      return false;
-  };
-
-  // Return true if the triangle contains points with indices 'k1' and 'k2':
-
-  bool contains (int k1, int k2) const {
-    if (k1 > k2)
-      std::swap (k1, k2);
-    return
-      ((k1 == ix0) && (k2 == ix1)) ||
-      ((k1 == ix0) && (k2 == ix2)) ||
-      ((k1 == ix1) && (k2 == ix2));
-  };
-
-  // Return true if the triangle contains ix1 and ix2, but does NOT contain ox3:
-
-  bool contains2 (int in1, int in2, int out3) const {
-    if (in1 > in2)
-      std::swap (in1, in2);
-    return ((in1 == ix0) && (in2 == ix1) && (out3 != ix2)) ||
-                 ((in1 == ix0) && (in2 == ix2) && (out3 != ix1)) ||
-                 ((in1 == ix1) && (in2 == ix2) && (out3 != ix0));
-  }
-
-  // Does not seem to be used by the std::set operations, so we probably don't need it:
-
-  bool operator== (Triangle that) const {
-    return ((ix0 == that.ix0) &&
-            (ix1 == that.ix1) &&
-            (ix2 == that.ix2));
-  };
-};
-
-// Find a triangle in trSet which contains ix0 and ix1, but not ox2.
+// Find a triangle in trSet which contains ix0 and ix1, but not out2.
 // If found iterator pointing to the triangle is returned and the third index is written to *in3p.
 // If not found the return iterator points to trSet.end();
 
@@ -243,42 +136,59 @@ void addTriangle (int vertIx0, int vertIx1, int vertIx2,
 #endif
 }
 
-// Add new triangle with a new point newPnt and old points oldPnt1, oldPnt2.
-// If oldPnt1,oldPnt2 belong to an old triangle, and newPnt is inside the circle
+// Add new triangle with a new point pnt0 and old points pnt1, pnt2.
+// If pnt1,pnt2 belong to an old triangle, and pnt0 is inside the circle
 // circumscribed around the triangle than "flip" the new and old triangles.
 
 template <typename T>
-void addAndFlip (int newPnt, int oldPnt1, int oldPnt2,
+void addAndFlip (int pnt0, int pnt1, int pnt2,
                  const std::vector<Point<T> >& pntVector,
                  std::set <Triangle>&  trSet)
 {
-  int oldPnt3;
-  std::set <Triangle>::iterator tp = findAdjacent (trSet, oldPnt1, oldPnt2, -1, &oldPnt3);
-  if ((tp != trSet.end()) && (isInCircumCircle (pntVector[newPnt],
-						pntVector[oldPnt1],
-						pntVector[oldPnt2],
-						pntVector[oldPnt3]))) {
+  int pnt3;
+  std::set <Triangle>::iterator tp = findAdjacent (trSet, pnt1, pnt2, pnt0, &pnt3);
+  if (((tp = findAdjacent (trSet, pnt1, pnt2, pnt0, &pnt3) )!= trSet.end()) &&
+      isInCircumCircle (pntVector[pnt3],
+			pntVector[pnt0], pntVector[pnt1], pntVector[pnt2])) {
     removeTriangle (trSet, tp);
-    addAndFlip (newPnt, oldPnt1, oldPnt3, pntVector, trSet);
-    addAndFlip (newPnt, oldPnt2, oldPnt3, pntVector, trSet);
+    addAndFlip (pnt1, pnt0, pnt3, pntVector, trSet);
+    addAndFlip (pnt2, pnt0, pnt3, pntVector, trSet);
   }
+#if 1
+  // This part is probably redundant, but theoretically might happen because of
+  // the recursion. It ads around 30% on large tests.
+  else if (((tp = findAdjacent (trSet, pnt0, pnt1, pnt2, &pnt3)) != trSet.end()) &&
+	   isInCircumCircle (pntVector[pnt3],
+			     pntVector[pnt0], pntVector[pnt1], pntVector[pnt2])) {
+
+    removeTriangle (trSet, tp);
+    addAndFlip (pnt0, pnt2, pnt3, pntVector, trSet);
+    addAndFlip (pnt1, pnt2, pnt3, pntVector, trSet);
+  }
+  
+  else if (((tp = findAdjacent (trSet, pnt0, pnt2, pnt1, &pnt3)) != trSet.end()) &&
+	   isInCircumCircle (pntVector[pnt3],
+			     pntVector[pnt0], pntVector[pnt1], pntVector[pnt2])) {
+    removeTriangle (trSet, tp);
+    addAndFlip (pnt0, pnt1, pnt3, pntVector, trSet);
+    addAndFlip (pnt2, pnt1, pnt3, pntVector, trSet);
+  }
+#endif
   else
-    addTriangle (newPnt, oldPnt1, oldPnt2, trSet);
+    addTriangle (pnt0, pnt1, pnt2, trSet);
 }
 
-// Return true if the three points lie on a single line with relative
-// precision of epsilon.  Note that if T is an integer type then
-// 'epsilon' is usually 0.
+// Return true if the three points lie on a single line. This will
+// typically happen when the points have integer coordinates.
 
 template <typename T>
-bool isInLine (Point<T> p0, Point<T> p1, Point<T> p2, T epsilon2)
+bool isInLine (Point<T> p0, Point<T> p1, Point<T> p2)
 {
   Point<T>
     side1 = p1 - p0,
     side2 = p2 - p0;
-  T sideNorms  = side1.norm2() + side2.norm2();
   T area = det (side1, side2);
-  bool rslt = area*area < epsilon2 * sideNorms * sideNorms;
+  bool rslt = (area == 0);
   return rslt;
 }
 
@@ -318,7 +228,6 @@ template <typename T>
 PointVsTriangle tryTriangle (int pntNum,
 			     std::set<Triangle>::iterator tp,
 			     const std::vector<Point<T> > pntVector,
-			     T epsilon2, // relative precision.
 			     int* adjVertex1,
 			     int* adjVertex2,
 			     int* oppositeVertex,
@@ -335,8 +244,6 @@ PointVsTriangle tryTriangle (int pntNum,
     t1 = pntVector[v1],
     t2 = pntVector[v2];
   T
-    roughSize2 = (t1-t0).norm2() + (t2-t0).norm2(),
-    absEpsilon2 = epsilon2 * roughSize2,  // absolute instead of relative
     d01 = det (t0-p, t1-p),
     d12 = det (t1-p, t2-p),
     d20 = det (t2-p, t0-p),
@@ -353,9 +260,9 @@ PointVsTriangle tryTriangle (int pntNum,
   // Now check if the point is inside the triangle and not near or on any of the sides,
   // which means that none of the determinants is too small:
 
-  if ((d012 > absEpsilon2) &&
-      (d120 > absEpsilon2) &&
-      (d201 > absEpsilon2)) {
+  if ((d012 > 0) &&
+      (d120 > 0) &&
+      (d201 > 0)) {
     removeTriangle (trSet, tp);
     addAndFlip (pntNum, v0, v1, pntVector, trSet);
     addAndFlip (pntNum, v1, v2, pntVector, trSet);
@@ -365,34 +272,34 @@ PointVsTriangle tryTriangle (int pntNum,
 
   // At this stage we know that the point is close to one of the sides of the triangle,
   // but we have to figure out which side. That side is determined by finding
-  // the largest product of determinants.
+  // the smallest (by absolute value/square) determinant:
 
   int vOpp;
-  T dMax;
-  if (d012 > d120) {
+  T dMin;
+  if (d01*d01 < d20*d20) {
     v0   = trngl.ix0;
-    v1   = trngl.ix2;
-    vOpp = trngl.ix1;
-    dMax = d012;
+    v1   = trngl.ix1;
+    vOpp = trngl.ix2;
+    dMin = d01*d01;
   }
   else {
-    v0   = trngl.ix1;
+    v0   = trngl.ix2;
     v1   = trngl.ix0;
-    vOpp = trngl.ix2;
-    dMax = d120;
+    vOpp = trngl.ix1;
+    dMin = d20*d20;
   }
-  if (d201 > dMax) {
+  if (d12*d12 < dMin) {
     v0   = trngl.ix1;
     v1   = trngl.ix2;
     vOpp = trngl.ix0;
-    dMax = d201;
+    dMin = d12*d12;
   }
 
-  // Now we know that the point is close to the side with indices 'v0' and 'v1',
+  // Now we know that the point is on the side with indices 'v0' and 'v1',
   // and the opposite triangle vertex has index 'vOpp'.
-  // If  the point is close to either 'v0' or 'v1' then do nothing:
+  // If  the point is equal to either 'v0' or 'v1' then do nothing:
 
-  if (((p-pntVector[v0]).norm2() < absEpsilon2) || ((p-pntVector[v1]).norm2() < absEpsilon2))
+  if (((p-pntVector[v0]).norm2() == 0) || ((p-pntVector[v1]).norm2() == 0))
     return Duplicate;
 
   // At this stage the point is very close to the [g0,g1] line, but not close to either end:
@@ -425,9 +332,9 @@ PointVsTriangle tryTriangle (int pntNum,
 
 
 template <typename T>
-bool isObtuse (Point<T> p1, Point<T> p2, Point<T> p3, T absEpsilon2)
+bool isObtuse (Point<T> p1, Point<T> p2, Point<T> p3)
 {
-  return (p2-p1).dot(p3-p2) > absEpsilon2;
+  return (p2-p1).dot(p3-p2) > 0;
 }
 
 // The line is defined as a vector of indices from 'pSet'.
@@ -439,8 +346,7 @@ bool isObtuse (Point<T> p1, Point<T> p2, Point<T> p3, T absEpsilon2)
 template <typename T>
 void expandStraightLine (int pntNew,
 			 std::vector<int>& line,
-			 const std::vector<Point<T> > & pSet,
-			 T epsilon2)
+			 const std::vector<Point<T> > & pSet)
 {
   int
     lineLen = line.size(),
@@ -448,17 +354,14 @@ void expandStraightLine (int pntNew,
     pnt1 = line[1],
     pnt49 = line[lineLen-2],
     pnt50 = line[lineLen-1];
-  T
-    avgLen2 = (pSet[pnt50]-pSet[pnt0]).norm2() / ((lineLen-1)*(lineLen-1)),
-    absEpsilon2 = avgLen2 * epsilon2;
 
-  if (isObtuse (pSet[pntNew], pSet[pnt0], pSet[pnt1], absEpsilon2))
+  if (isObtuse (pSet[pntNew], pSet[pnt0], pSet[pnt1]))
     line.insert (line.begin(), pntNew);
-  else if  (isObtuse (pSet[pnt49], pSet[pnt50], pSet[pntNew], absEpsilon2))
+  else if  (isObtuse (pSet[pnt49], pSet[pnt50], pSet[pntNew]))
     line.push_back (pntNew);
   else {
     for (std::vector<int>::iterator q=line.begin();  q+1 != line.end(); q++) {
-      if (isObtuse (pSet[*q], pSet[pntNew], pSet[*(q+1)], absEpsilon2)) {
+      if (isObtuse (pSet[*q], pSet[pntNew], pSet[*(q+1)])) {
 	line.insert(q+1, pntNew);
 	break;
       }
@@ -470,17 +373,11 @@ void expandStraightLine (int pntNew,
 // i.e., for each point P in 'pSet' and each triangle R in the computed 'trSet'
 // either P is a vertex of R, or P does not inside the circle circumscribed around R.
 // Each Triangle object in 'trSet' contains indices of 3 points from pSet.
-// epsilon is  the relative (to distances between points) precision for
-// determining whether one point is too close to another (in which case it is ignored)
-// or whether point A is too close to a line connecting points B and C, in which
-// case  triangle A,B,C  is not created.
 
 template <typename T>
 void delaunay (const std::vector<Point<T> >& pSet,
-               std::set <Triangle>&          trSet,
-	       T epsilon = static_cast<T> (1e-8))
+               std::set <Triangle>&          trSet)
 {
-  T epsilon2 = epsilon * epsilon;
   // Indices of the oriented (counterclockwise) convex hull of all points:
   std::vector<int> orientedHull;
   trSet.clear();
@@ -514,12 +411,10 @@ void delaunay (const std::vector<Point<T> >& pSet,
       tryResult = tryTriangle<T> (pntNum,
 				  tp,
 				  pSet,
-				  epsilon2,
 				  &sidePnt1,
 				  &sidePnt2,
 				  &oppPnt,
 				  trSet);
-
 #if DEBUG_TRIANG >= 2
       std::cout
 	//	<<  "Point " << pntNum
@@ -541,6 +436,8 @@ void delaunay (const std::vector<Point<T> >& pSet,
     switch (tryResult) {
 
       case Inside:
+      case Duplicate:
+      case OnASideInternal:
 	// The oriented hull need not change, so do nothing.
 	break;
 
@@ -557,8 +454,8 @@ void delaunay (const std::vector<Point<T> >& pSet,
 	      int
 		px0 = orientedHull[0],
 		px1 = orientedHull[1];
-	      if (isInLine (pSet[px0], pSet[px1], pSet[pntNum], epsilon2)) 
-		expandStraightLine (pntNum, orientedHull, pSet, epsilon2);
+	      if (isInLine (pSet[px0], pSet[px1], pSet[pntNum])) 
+		expandStraightLine (pntNum, orientedHull, pSet);
 	      else {
 		// Form a triangle, but make sure the orientation of the hull is counter-clockwise:
 		orientedHull.push_back (pntNum);
@@ -573,27 +470,45 @@ void delaunay (const std::vector<Point<T> >& pSet,
 
 	  default:
 
-	    // WRONG ! : orientedHull is a straight line, but we might add triangles !!
+	    // We get here when the orientedHull has more than 2 points and they
+	    // are all on a straight line. In this case the orientedHull orientation
+	    // is meaningless, but we expect the points on the line to be in order.
+	    // We must figure out the new orientation and expand the hull.
 
-	    if (isInLine (pSet[pntNum], pSet[orientedHull[0]], pSet[orientedHull[1]],
-			  epsilon2))
-	      expandStraightLine (pntNum, orientedHull, pSet, epsilon2);
+	    // First double check that the points are in order:
+
+	    for (int hk=1; hk<hullLen-1; hk++) {
+	      int
+		k0 = orientedHull[hk-1],
+		k1 = orientedHull[hk],
+		k2 = orientedHull[hk+1];
+	      if ((pSet[k1]-pSet[k0]).dot (pSet[k2]-pSet[k1]) < 0)
+		throw std::runtime_error ("Straight line points out of order");
+	    }
+
+	    // If the new line is on the same straight line then just expand the hull;
+	    // otherwise build new triangles and re-compute, if necessary, the hull's orientation:
+	    
+	    if (isInLine (pSet[pntNum], pSet[orientedHull[0]], pSet[orientedHull[1]]))
+	      expandStraightLine (pntNum, orientedHull, pSet);
 	    else {  // Add bunch of triangles and update the hull:
 
 	      for (int k=0; k<hullLen-1; k++)
 		addTriangle (orientedHull[k], orientedHull[k+1], pntNum, trSet);
-
+	      //...................... Reverse the oriented hull order if necessary:
 	      Point<T>
-		lineDir = pSet[orientedHull[1]] - pSet[orientedHull[0]],
-		pntDir  = pSet[pntNum] - pSet[orientedHull[0]];
-	      if (clockwise (lineDir, pntDir))
-		orientedHull.insert (orientedHull.begin(), pntNum);
-	      else
-		orientedHull.push_back (pntNum);
+		hullPointFirst = pSet[orientedHull[0]],
+		hullPointLast  = pSet[orientedHull[hullLen-1]],
+		hullVector     = hullPointLast - hullPointFirst,
+		newVector      = pSet[pntNum] - hullPointFirst;
+	      if (det (hullVector, newVector) < 0)
+		std::reverse (orientedHull.begin(), orientedHull.end());
+	      orientedHull.push_back (pntNum);
 	    }
 	    break;
 	}
 	break;
+
       case Outside:
 	// Build new triangles and update Oriented Hull
 	{
@@ -665,13 +580,78 @@ void delaunay (const std::vector<Point<T> >& pSet,
 	break;
 
       default:
-#if DEBUG_TRIANG >= 2
+#if DEBUG_TRIANG >= 1
 	std::cerr << "   tryAngle returned " << tryResult << std::endl;
 #endif
 	throw std::runtime_error ("Bad result from tryTriangle");
 	break;
     }
+#if 0
+#if DEBUG_TRIANG >= 1
+#if 0
+    {  // Check convexity of orientedHull:
+      int hullLen = orientedHull.size();   // Length could have changed.
+      for (int k=0; k<hullLen; k++) {
+	int
+	  p1num = orientedHull [k],
+	  p2num = orientedHull [(k+1)%hullLen],
+	  p3num = orientedHull [(k+2)%hullLen];
+	Point<T>
+	  p1 = pSet[p1num],
+	  p2 = pSet[p2num],
+	  p3 = pSet[p3num];
+	if (det (p2-p1,p3-p2) < 0) {
+	  std::cerr << "Points "
+		    << p1num << "," << p2num << "," << p3num
+		    << " in orientedHull are disoriented" << std::endl;
+#if DEBUG_TRIANG >= 1
+	  std::cerr << std::setprecision (30);
+	  std::cerr << "New Point # " << pntNum << " : " << pSet[pntNum].x << " " << pSet[pntNum].y
+		    << std::endl
+		    << " Oriented Hull: " << std::endl;
+	  for (int j=0; j<hullLen; j++) 
+	    std::cerr << pSet[orientedHull[j]].x << " " << pSet[orientedHull[j]].y
+		      << "   point " << orientedHull[j] << std::endl;
+	  std::cerr << std::endl;
+#endif
+	  throw std::runtime_error ("...");
+	}
+      }
+    }
+#endif
+#if 1
+    { // Check orientedHull for duplications:
+      std::vector<int> ohCopy = orientedHull;
+      std::sort (ohCopy.begin(), ohCopy.end());
+      std::vector<int>::iterator
+	oldEnd = ohCopy.end(),
+	newEnd =  std::unique (ohCopy.begin(), oldEnd);
+      if (newEnd != oldEnd) {
+	std::cerr << "Non unique oriented hull after point  " << pntNum << ":" << std::endl;
+	for (std::vector<int>::const_iterator q=orientedHull.begin();
+	     q != orientedHull.end(); q++)
+	  std::cerr << " " << *q;
+	std::cerr << std::endl;
+	throw std::runtime_error ("...");
+      }
+    }
+#endif
+#endif
+#endif
   }   // Loop by points
 }
+
+template <>
+void delaunay<int> (const std::vector<Point<int> >& pSet,
+		    std::set <Triangle>&          trSet)
+{
+  int pLen = pSet.size();
+  std::vector<Point<double> > pSet2 (pLen);
+  for (int k=0; k<pLen; k++)
+    pSet2[k] = Point<double> (pSet[k].x, pSet[k].y);
+  delaunay<double> (pSet2, trSet);
+}
+
+
 
 #endif /*INCLUDED_triang_hpp_85662733*/
