@@ -15,4 +15,4 @@ logname=${rootname}.log
 
 time stdbuf -o 0 -e 0 $exname $* > $logname 2>&1
 
-echo RC = $? " <====== " $*  >> $logname
+echo RC = $? " <====== " $exname $*  >> $logname

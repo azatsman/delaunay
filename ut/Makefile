@@ -26,8 +26,7 @@ ut-greg2: ut-greg2.cpp ../triang.hpp utils.hpp
 ut-greg1: ut-greg1.cpp ../triang.hpp utils.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lm
 
-TARGETS = ut-isinside ut-grid ut-random-grid  ut-random dump-xg-frames ut-circum \
-	ut-greg1 ut-greg2 ut-seg-cross
+TARGETS =  ut-grid ut-random-grid  ut-random ut-greg1 ut-greg2 
 
 all: $(TARGETS)
 
